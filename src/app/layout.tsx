@@ -14,12 +14,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LYNK — IEEE CCE Event Networking",
+  title: "CONNECT — IEEE CCE Networking",
   description:
-    "Connect with fellow participants at the IEEE CCE event through our interactive human bingo networking game. Discover, connect, and climb the leaderboard!",
-  keywords: ["IEEE", "CCE", "networking", "event", "LYNK", "human bingo"],
+    "Connect with fellow participants at the IEEE CCE through our interactive human bingo networking game. Discover, connect, and climb the leaderboard!",
+  keywords: ["IEEE", "CCE", "networking", "event", "CONNECT", "human bingo"],
   openGraph: {
-    title: "LYNK — IEEE CCE Event Networking",
+    title: "CONNECT — IEEE CCE Networking",
     description: "Connect with fellow participants through interactive networking challenges.",
     type: "website",
   },

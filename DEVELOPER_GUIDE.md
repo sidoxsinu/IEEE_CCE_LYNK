@@ -4,7 +4,7 @@ This guide reflects the *real, current state* of the LYNK codebase as of August 
 
 ## 1. Architecture Overview
 
-LYNK is a mobile-first web application built for the IEEE CCE event.
+LYNK is a mobile-first web application built for the IEEE CCE.
 - **Framework:** Next.js 15 (App Router) using React Server Components and Server Actions.
 - **Styling:** Tailwind CSS v4.0 with a custom Neo-Brutalist design system.
 - **Backend (BaaS):** Supabase provides PostgreSQL (database), GoTrue (Authentication via Google OAuth), and Storage (for selfies).

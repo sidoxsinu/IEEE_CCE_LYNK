@@ -1,4 +1,4 @@
--- LYNK: Postgres Schema & RLS Policies
+-- CONNECT: Postgres Schema & RLS Policies
 
 -- 1. Create Tables
 CREATE TABLE participants (

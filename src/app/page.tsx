@@ -19,7 +19,7 @@ function LoginContent() {
   useEffect(() => {
     const errorParam = searchParams.get('error');
     const errorDesc = searchParams.get('desc');
-    
+
     if (errorParam) {
       if (errorParam === 'NotRegistered') {
         setMatchError("Your email is not registered for this event. Please contact the event organizer.");
@@ -79,14 +79,14 @@ function LoginContent() {
 
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden bg-bg-alt">
-      
+
       {/* Neo-brutalist geometric decorations */}
       <div className="absolute top-10 left-10 w-32 h-32 border-4 border-text bg-warning rotate-12 -z-10" />
       <div className="absolute bottom-20 right-10 w-48 h-12 border-4 border-text bg-success -rotate-6 -z-10" />
       <div className="absolute top-1/4 right-1/4 w-16 h-16 rounded-full border-4 border-text bg-primary -z-10" />
 
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-8">
-        
+
         {/* Badge */}
         <Badge variant="primary" className="text-sm px-4 py-1.5 shadow-[2px_2px_0px_#000]">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -94,13 +94,13 @@ function LoginContent() {
             <path d="M2 17l10 5 10-5" />
             <path d="M2 12l10 5 10-5" />
           </svg>
-          IEEE CCE Event
+          IEEE CCE
         </Badge>
 
         {/* Logo & Title */}
         <div className="text-center">
           <h1 className="text-6xl font-black mb-4 uppercase tracking-tighter">
-            <span className="text-primary" style={{ textShadow: "4px 4px 0px #000" }}>LYNK</span>
+            <span className="text-primary" style={{ textShadow: "4px 4px 0px #000" }}>CONNECT</span>
           </h1>
           <p className="text-text font-medium text-base leading-relaxed max-w-[280px] mx-auto border-2 border-text bg-white p-3 shadow-[2px_2px_0px_#000]">
             Discover, connect, and build meaningful relationships at the event.
@@ -109,7 +109,7 @@ function LoginContent() {
 
         {/* Sign-in Card */}
         <Card className="w-full p-8 flex flex-col items-center border-thicker shadow-hard text-center bg-white">
-          
+
           {/* Error state */}
           {matchError && (
             <div className="mb-6 w-full text-left">
@@ -136,7 +136,7 @@ function LoginContent() {
               <p className="text-sm text-text-muted font-medium mb-8">
                 Sign in with your registered Google account to start networking.
               </p>
-              
+
               <Button
                 variant="secondary"
                 onClick={handleGoogleSignIn}
