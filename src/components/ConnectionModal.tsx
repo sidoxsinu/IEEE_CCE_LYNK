@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 
 export interface ParticipantCard {
   id: string;
+  name: string;
   clue_text: string;
   self_clue?: string | null;
   department: string;

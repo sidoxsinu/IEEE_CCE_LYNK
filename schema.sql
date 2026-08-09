@@ -181,6 +181,7 @@ $$;
 CREATE OR REPLACE FUNCTION get_clue_grid()
 RETURNS TABLE (
   id uuid,
+  name text,
   clue_text text,
   self_clue text,
   department text,
@@ -191,6 +192,7 @@ RETURNS TABLE (
 LANGUAGE sql SECURITY DEFINER AS $$
   SELECT 
     p.id, 
+    p.name,
     p.clue_text, 
     p.self_clue,
     p.department, 

@@ -81,8 +81,14 @@ function HomePageInner() {
     fetchClueGrid(); // Refresh so the card reflects the new clue
   };
 
-  // Exclude self from grid if user is also a participant
-  const gridParticipants = participants.filter(p => p.claimed_by_uid !== userProfile?.uid);
+  // Exclude self from grid if user is also a participant, and sort verified to the bottom
+  const gridParticipants = participants
+    .filter(p => p.claimed_by_uid !== userProfile?.uid)
+    .sort((a, b) => {
+      if (a.connection_status === 'verified' && b.connection_status !== 'verified') return 1;
+      if (b.connection_status === 'verified' && a.connection_status !== 'verified') return -1;
+      return 0;
+    });
   const totalParticipants = gridParticipants.length;
   const verifiedConnections = gridParticipants.filter(p => p.connection_status === "verified").length;
   const progressPercent = totalParticipants > 0 ? (verifiedConnections / totalParticipants) * 100 : 0;
@@ -184,13 +190,13 @@ function HomePageInner() {
                   <Card
                     hoverable
                     className={`p-5 h-full ${isVerified
-                        ? "bg-primary text-white border-thicker"
+                        ? "!bg-primary text-white border-thicker"
                         : "bg-white border-thicker"
                       }`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <span className={`text-xs font-black uppercase tracking-widest ${isVerified ? 'text-white' : 'text-primary'}`}>
-                        {p.department}
+                        {p.department || "Participant"}
                       </span>
                       {isVerified && (
                         <Badge variant="success" className="shadow-[2px_2px_0px_#000]">
@@ -205,9 +211,15 @@ function HomePageInner() {
                         <Badge variant="error" className="shadow-[2px_2px_0px_#000]">Try Again</Badge>
                       )}
                     </div>
-                    <p className={`text-base font-semibold leading-relaxed ${isVerified ? "text-white" : "text-text"}`}>
-                      &quot;{displayClue}&quot;
-                    </p>
+                    {isVerified ? (
+                      <p className="text-xl font-black text-white uppercase leading-relaxed">
+                        {p.name || "Unknown Name"}
+                      </p>
+                    ) : (
+                      <p className="text-base font-semibold text-text leading-relaxed">
+                        &quot;{displayClue}&quot;
+                      </p>
+                    )}
                   </Card>
                 </button>
               );
