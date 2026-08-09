@@ -389,6 +389,44 @@ BEGIN
 END;
 $$;
 
+-- Admin Get Participants: Lists all participants and claim status
+CREATE OR REPLACE FUNCTION get_admin_participants_list()
+RETURNS TABLE (id uuid, name text, email text, department text, claimed boolean)
+LANGUAGE sql SECURITY DEFINER AS $$
+  SELECT id, name, email, department, (claimed_by_uid IS NOT NULL)
+  FROM participants
+  ORDER BY name ASC;
+$$;
+
+-- Admin Delete Participant: Completely deletes a participant and cascades to their connections/users
+CREATE OR REPLACE FUNCTION admin_delete_participant(p_id uuid)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_uid uuid;
+BEGIN
+  IF get_user_role() != 'admin' THEN
+    RAISE EXCEPTION 'Unauthorized: Admins only';
+  END IF;
+
+  SELECT claimed_by_uid INTO v_uid FROM participants WHERE id = p_id;
+
+  -- Delete connections to this participant (cascades to gallery)
+  DELETE FROM connections WHERE to_participant_id = p_id;
+
+  IF v_uid IS NOT NULL THEN
+    -- Delete connections made by this user
+    DELETE FROM connections WHERE from_uid = v_uid;
+    
+    -- Delete the user profile so they are forced to log in fresh
+    DELETE FROM users WHERE uid = v_uid;
+  END IF;
+
+  -- Delete the participant
+  DELETE FROM participants WHERE id = p_id;
+END;
+$$;
+
 -- 4.5 Realtime Setup
 -- Enable Realtime replication for public_gallery
 ALTER PUBLICATION supabase_realtime ADD TABLE public_gallery;

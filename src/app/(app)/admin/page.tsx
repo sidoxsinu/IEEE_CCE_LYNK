@@ -57,6 +57,7 @@ export default function AdminPage() {
   
   // Feedback states
   const [importFeedback, setImportFeedback] = useState<{type: 'success' | 'error', msg: string} | null>(null);
+  const [participantsList, setParticipantsList] = useState<any[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +84,9 @@ export default function AdminPage() {
     }
     if (view === "clue-moderation") {
       fetchClueQueue();
+    }
+    if (view === "manage-participants") {
+      fetchParticipantsList();
     }
   }, [view]);
 
@@ -112,6 +116,24 @@ export default function AdminPage() {
     const { data, error } = await supabase.rpc("get_admin_clue_queue");
     if (!error && data) setClueQueue(data);
     setLoadingQueue(false);
+  };
+
+  const fetchParticipantsList = async () => {
+    setLoadingQueue(true);
+    const { data, error } = await supabase.rpc("get_admin_participants_list");
+    if (!error && data) setParticipantsList(data);
+    setLoadingQueue(false);
+  };
+
+  const handleDeleteParticipant = async (participantId: string, name: string) => {
+    if (!window.confirm(`Are you SURE you want to completely delete all data for ${name}? This action cannot be undone and will delete all their connections and selfies.`)) return;
+    
+    const { error } = await supabase.rpc("admin_delete_participant", { p_id: participantId });
+    if (error) { 
+      alert("Failed to delete participant: " + error.message); 
+      return; 
+    }
+    setParticipantsList(q => q.filter(item => item.id !== participantId));
   };
 
   const clearSelfClue = async (participantId: string) => {
@@ -298,19 +320,20 @@ export default function AdminPage() {
           {[
             { id: "import-export", icon: "📥", label: "Import / Export Data", desc: "Manage participant CSVs" },
             { id: "event-controls", icon: "⚙️", label: "Event Controls", desc: "Toggle event active / leaderboard" },
-            { id: "selfie-moderation", icon: "🖼️", label: "Selfie Moderation", desc: "Review uploaded selfies" },
-            { id: "clue-moderation", icon: "✏️", label: "Clue Moderation", desc: "Review user-submitted personal clues" },
-          ].map((action) => (
+            { id: "manage-participants", icon: "👥", label: "Manage Participants", desc: "View and delete participants" },
+            { id: "selfie-moderation", icon: "📸", label: "Selfie Moderation", desc: "Hide inappropriate selfies" },
+            { id: "clue-moderation", icon: "🕵️", label: "Clue Moderation", desc: "Clear inappropriate personal clues" },
+          ].map(btn => (
             <button
-              key={action.id}
-              onClick={() => setView(action.id as AdminView)}
+              key={btn.id}
+              onClick={() => setView(btn.id as AdminView)}
               className="w-full text-left block bg-transparent border-0 outline-none p-0 min-h-[44px]"
             >
               <Card className="p-4 flex items-center gap-4 bg-white border-thicker shadow-[4px_4px_0px_#000] hover:-translate-y-1 hover:shadow-hard-hover active:translate-y-1 active:translate-x-1 active:shadow-none transition-all">
-                <span className="text-3xl bg-bg-alt border-2 border-text p-2 rounded-sm">{action.icon}</span>
+                <span className="text-3xl bg-bg-alt border-2 border-text p-2 rounded-sm">{btn.icon}</span>
                 <div className="flex-1">
-                  <p className="text-base font-black text-text uppercase">{action.label}</p>
-                  <p className="text-xs font-bold text-text-muted">{action.desc}</p>
+                  <p className="text-base font-black text-text uppercase">{btn.label}</p>
+                  <p className="text-xs font-bold text-text-muted">{btn.desc}</p>
                 </div>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-text">
                   <path d="m9 18 6-6-6-6" />
@@ -546,6 +569,43 @@ export default function AdminPage() {
                     <p className="text-xs font-black uppercase mb-1">Admin clue (baseline)</p>
                     {item.clue_text}
                   </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === "manage-participants" && (
+        <div className="space-y-4">
+          <p className="text-sm font-bold text-text-muted">
+            All participants in the system. Use this to completely reset or remove participants.
+          </p>
+          {loadingQueue ? (
+            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" size={32} /></div>
+          ) : participantsList.length === 0 ? (
+            <Card className="p-8 text-center bg-white border-thicker shadow-[4px_4px_0px_#000]">
+              <p className="font-bold">No participants found.</p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {participantsList.map(item => (
+                <Card key={item.id} className="p-4 bg-white border-thicker shadow-[4px_4px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-black text-text uppercase truncate text-lg">{item.name}</p>
+                      {item.claimed && (
+                        <Badge variant="success" className="text-[10px] py-0.5 px-1">CLAIMED</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted font-bold truncate">{item.department} &middot; {item.email}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteParticipant(item.id, item.name)}
+                    className="flex-shrink-0 text-xs font-black uppercase text-error border-2 border-error px-4 py-2 hover:bg-error hover:text-white transition-colors min-h-[44px]"
+                  >
+                    Delete Data
+                  </button>
                 </Card>
               ))}
             </div>
