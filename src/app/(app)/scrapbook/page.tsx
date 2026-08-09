@@ -86,10 +86,10 @@ export default function ScrapbookPage() {
           </p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
           {entries.map((entry) => (
-            <Card key={entry.id} className="overflow-hidden bg-white border-thicker flex flex-col shadow-[4px_4px_0px_#000]">
-              <div className="w-full aspect-square border-b-4 border-text bg-bg-alt relative">
+            <Card key={entry.id} className="overflow-hidden bg-white border-2 md:border-thicker flex flex-col shadow-[2px_2px_0px_#000] md:shadow-[4px_4px_0px_#000]">
+              <div className="w-full aspect-square border-b-2 md:border-b-4 border-text bg-bg-alt relative">
                 {entry.selfie_url ? (
                   <img 
                     src={entry.selfie_url} 
@@ -97,20 +97,20 @@ export default function ScrapbookPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-text-muted">
+                  <div className="absolute inset-0 flex items-center justify-center text-text-muted text-xs">
                     No image
                   </div>
                 )}
-                <Badge variant="primary" className="absolute top-4 left-4 shadow-[2px_2px_0px_#000]">
+                <Badge variant="primary" className="absolute top-2 left-2 text-[9px] py-0.5 px-1 shadow-[2px_2px_0px_#000]">
                   {new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                 </Badge>
               </div>
-              <div className="p-5 flex flex-col gap-2">
-                <div className="flex justify-between items-start">
-                  <h3 className="text-xl font-black uppercase truncate">{entry.target_name}</h3>
-                  <Badge variant="default" className="shrink-0 ml-2 border-2 border-text text-xs uppercase">{entry.target_department}</Badge>
+              <div className="p-3 flex flex-col gap-1.5">
+                <div className="flex flex-col items-start gap-1">
+                  <h3 className="text-sm font-black uppercase truncate w-full">{entry.target_name}</h3>
+                  <Badge variant="default" className="shrink-0 border border-text text-[9px] py-0 px-1 uppercase truncate max-w-full">{entry.target_department}</Badge>
                 </div>
-                <div className="bg-bg-alt p-3 border-2 border-text text-sm font-bold text-text mt-2">
+                <div className="bg-bg-alt p-2 border border-text text-[10px] md:text-xs font-bold text-text mt-1 line-clamp-3">
                   "{entry.fact_text}"
                 </div>
               </div>

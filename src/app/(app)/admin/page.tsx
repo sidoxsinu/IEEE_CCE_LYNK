@@ -500,31 +500,32 @@ export default function AdminPage() {
               <p className="font-bold">No selfies found.</p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
               {queue.map(item => (
-                <Card key={item.id} className={`overflow-hidden bg-white border-thicker shadow-[4px_4px_0px_#000] flex flex-col ${item.hidden ? 'opacity-80' : ''}`}>
-                  <div className="aspect-square relative border-b-4 border-text bg-bg-alt">
+                <Card key={item.id} className={`overflow-hidden bg-white border-2 md:border-thicker shadow-[2px_2px_0px_#000] md:shadow-[4px_4px_0px_#000] flex flex-col ${item.hidden ? 'opacity-80' : ''}`}>
+                  <div className="aspect-square relative border-b-2 md:border-b-4 border-text bg-bg-alt">
                     <img src={item.selfie_url} alt="Selfie" className={`w-full h-full object-cover ${item.hidden ? 'grayscale' : ''}`} />
                     {item.hidden && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <Badge variant="error" className="text-lg py-2 px-4 shadow-[4px_4px_0px_#000] border-4">HIDDEN</Badge>
+                        <Badge variant="error" className="text-[10px] md:text-sm py-1 px-2 shadow-[2px_2px_0px_#000] border-2">HIDDEN</Badge>
                       </div>
                     )}
                   </div>
-                  <div className="p-4 flex flex-col gap-3">
+                  <div className="p-2.5 flex flex-col gap-2">
                     <div>
-                      <p className="text-xs font-bold text-text-muted uppercase">From → To</p>
-                      <p className="text-base font-black truncate">{item.from_name} → {item.to_name}</p>
+                      <p className="text-[9px] md:text-[10px] font-bold text-text-muted uppercase mb-0.5">From → To</p>
+                      <p className="text-xs font-black truncate leading-tight">{item.from_name}</p>
+                      <p className="text-xs font-black truncate leading-tight text-text-muted">↳ {item.to_name}</p>
                     </div>
-                    <div className="bg-bg-alt p-2 border-2 border-text text-sm font-bold">
+                    <div className="bg-bg-alt p-1.5 border border-text text-[10px] font-bold line-clamp-2 leading-tight">
                       "{item.fact_learned}"
                     </div>
                     <Button 
                       variant={item.hidden ? "primary" : "secondary"}
-                      className={`w-full justify-center mt-2 min-h-[44px] ${!item.hidden ? 'border-2' : ''}`}
+                      className={`w-full justify-center text-xs py-1 min-h-[32px] ${!item.hidden ? 'border-2' : ''}`}
                       onClick={() => toggleSelfieVisibility(item.id, item.hidden)}
                     >
-                      {item.hidden ? <><Eye size={18} /> Unhide Selfie</> : <><EyeOff size={18} /> Hide Selfie</>}
+                      {item.hidden ? <><Eye size={14} className="mr-1" /> Unhide</> : <><EyeOff size={14} className="mr-1" /> Hide</>}
                     </Button>
                 </div>
               </Card>
