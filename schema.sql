@@ -263,6 +263,7 @@ RETURNS TABLE (
   created_at timestamptz
 )
 LANGUAGE sql SECURITY DEFINER AS $$
+  -- Connections the user made to others
   SELECT 
     c.id,
     p.name as target_name,
@@ -274,7 +275,24 @@ LANGUAGE sql SECURITY DEFINER AS $$
   JOIN participants p ON c.to_participant_id = p.id
   WHERE c.from_uid = auth.uid() 
     AND c.status = 'verified'
-  ORDER BY c.created_at DESC;
+    
+  UNION ALL
+  
+  -- Connections others made to this user
+  SELECT 
+    c.id,
+    u.display_name as target_name,
+    COALESCE(p_user.department, 'Connected to you') as target_department,
+    c.fact_learned as fact_text,
+    CASE WHEN c.hidden THEN NULL ELSE c.selfie_url END as selfie_url,
+    c.created_at
+  FROM connections c
+  JOIN users u ON c.from_uid = u.uid
+  LEFT JOIN participants p_user ON u.participant_id = p_user.id
+  WHERE c.to_participant_id = (SELECT id FROM participants WHERE claimed_by_uid = auth.uid())
+    AND c.status = 'verified'
+    
+  ORDER BY created_at DESC;
 $$;
 
 -- Admin Export: Securely exports participant data for admins
