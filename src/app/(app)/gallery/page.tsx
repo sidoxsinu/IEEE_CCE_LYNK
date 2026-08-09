@@ -89,18 +89,20 @@ export default function GalleryPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const scaleFactor = Math.max(0.3, Math.min(1.2, 4 / Math.sqrt(Math.max(1, items.length))));
+
     items.forEach(item => {
+      const hash = item.id.split('-')[0];
+      const intHash = parseInt(hash, 16);
+      const targetSize = (60 + (intHash % 160)) * scaleFactor;
+      
       if (!physicsRef.current.has(item.id)) {
-        const hash = item.id.split('-')[0];
-        const intHash = parseInt(hash, 16);
-        const size = 60 + (intHash % 160);
-        
         // Random start position within screen bounds
         const w = window.innerWidth;
         const h = window.innerHeight;
         // Keep within bounds
-        const startX = Math.random() * Math.max(0, w - size);
-        const startY = Math.random() * Math.max(0, h - size);
+        const startX = Math.random() * Math.max(0, w - targetSize);
+        const startY = Math.random() * Math.max(0, h - targetSize);
 
         // Very slow, relaxing drift (0.2 to 0.8 pixels per frame)
         const angle = Math.random() * Math.PI * 2;
@@ -108,7 +110,11 @@ export default function GalleryPage() {
         const vx = Math.cos(angle) * speed;
         const vy = Math.sin(angle) * speed;
 
-        physicsRef.current.set(item.id, { id: item.id, x: startX, y: startY, vx, vy, size });
+        physicsRef.current.set(item.id, { id: item.id, x: startX, y: startY, vx, vy, size: targetSize });
+      } else {
+        // Update size for existing items so they shrink dynamically
+        const node = physicsRef.current.get(item.id);
+        if (node) node.size = targetSize;
       }
     });
 
@@ -214,7 +220,11 @@ export default function GalleryPage() {
           {items.map((item) => {
             const hash = item.id.split('-')[0];
             const intHash = parseInt(hash, 16);
+            
+            const scaleFactor = Math.max(0.3, Math.min(1.2, 4 / Math.sqrt(Math.max(1, items.length))));
             const baseSize = 60 + (intHash % 160);
+            const currentSize = baseSize * scaleFactor;
+            
             const animDelay = (intHash % 20) * -0.3;
 
             return (
@@ -226,8 +236,8 @@ export default function GalleryPage() {
                 }}
                 className="absolute top-0 left-0 hover:z-[60]"
                 style={{ 
-                  width: `${baseSize}px`, 
-                  height: `${baseSize}px`,
+                  width: `${currentSize}px`, 
+                  height: `${currentSize}px`,
                 }}
                 onDragStart={(e) => e.preventDefault()}
               >

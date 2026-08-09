@@ -31,15 +31,39 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
   const [fact, setFact] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+      setIsProcessingImage(true);
+      setErrorMessage("");
+      
+      let file = e.target.files[0];
+      
+      // Convert HEIC to JPEG if needed so browsers can preview and compress it properly
+      if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
+        try {
+          // Dynamically import to keep bundle small if not needed immediately
+          const heic2any = (await import("heic2any")).default;
+          const convertedBlob = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.8,
+          });
+          const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+          file = new File([blob], file.name.replace(/\.heic$/i, '.jpg'), { type: "image/jpeg" });
+        } catch (err) {
+          console.error("HEIC conversion failed:", err);
+          setErrorMessage("Failed to process HEIC image. Please try a different photo.");
+        }
+      }
+
       setPhoto(file);
       setPhotoPreview(URL.createObjectURL(file));
+      setIsProcessingImage(false);
     }
   };
 
@@ -188,7 +212,12 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
                 disabled={step === "submitting"}
               />
               
-              {photoPreview ? (
+              {isProcessingImage ? (
+                <div className="relative rounded-sm overflow-hidden border-2 border-text aspect-video bg-bg-alt flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="animate-spin text-primary w-8 h-8" />
+                  <span className="text-xs font-bold text-text-muted">Processing Image...</span>
+                </div>
+              ) : photoPreview ? (
                 <div className="relative rounded-sm overflow-hidden border-2 border-text aspect-video bg-text flex items-center justify-center">
                   <img src={photoPreview} alt="Selfie preview" className="object-cover w-full h-full" />
                   <button
@@ -201,15 +230,15 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
+                <div 
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={step === "submitting"}
-                  className="w-full flex flex-col items-center justify-center gap-1 py-4 border-2 border-dashed border-text bg-white hover:bg-bg-alt text-text font-bold transition-colors shadow-[2px_2px_0px_#000] active:translate-y-1 active:translate-x-1 active:shadow-none"
+                  className={`border-4 border-dashed border-text bg-bg-alt hover:bg-white rounded-sm aspect-video flex flex-col items-center justify-center cursor-pointer transition-colors ${step === "submitting" ? 'opacity-50 pointer-events-none' : ''}`}
                 >
-                  <Camera size={24} className="text-primary mb-1" />
-                  <span className="text-xs">Tap to snap a selfie</span>
-                </button>
+                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mb-2 border-2 border-text shadow-[2px_2px_0px_#000]">
+                    <Camera className="text-white" size={24} />
+                  </div>
+                  <span className="font-bold text-sm">Snap Selfie</span>
+                </div>
               )}
             </div>
 
