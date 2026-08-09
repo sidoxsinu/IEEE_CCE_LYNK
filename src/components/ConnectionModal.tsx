@@ -128,7 +128,6 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
     <Modal isOpen={true} onClose={() => {
       if (step !== "submitting") onClose();
     }} title="Make a Connection">
-      <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden pr-2 -mr-2">
       {step === "success" ? (
         <div className="text-center py-10">
           <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
@@ -140,11 +139,11 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
         </div>
       ) : (
         <>
-          <p className="text-sm text-text-muted font-bold mb-6">Find the person who matches this clue!</p>
+          <p className="text-xs text-text-muted font-bold mb-3">Find the person who matches this clue!</p>
           
-          <Card className="p-4 bg-white border-thicker mb-6">
+          <Card className="p-3 bg-white border-thicker mb-4">
             <span className="text-xs font-black uppercase tracking-wider text-primary">Their Clue</span>
-            <p className="text-text font-bold text-lg mt-1">"{participant.clue_text}"</p>
+            <p className="text-text font-bold text-lg mt-1">&quot;{participant.self_clue || participant.clue_text || "No clue provided yet."}&quot;</p>
             <div className="mt-2 text-xs font-bold text-text-muted">{participant.department}</div>
           </Card>
 
@@ -155,7 +154,7 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Their Unique Code"
               type="text"
@@ -205,20 +204,20 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={step === "submitting"}
-                  className="w-full flex flex-col items-center justify-center gap-2 py-6 border-2 border-dashed border-text bg-white hover:bg-bg-alt text-text font-bold transition-colors shadow-[2px_2px_0px_#000] active:translate-y-1 active:translate-x-1 active:shadow-none"
+                  className="w-full flex flex-col items-center justify-center gap-1 py-4 border-2 border-dashed border-text bg-white hover:bg-bg-alt text-text font-bold transition-colors shadow-[2px_2px_0px_#000] active:translate-y-1 active:translate-x-1 active:shadow-none"
                 >
-                  <Camera size={28} className="text-primary mb-1" />
-                  <span className="text-sm">Tap to snap a selfie</span>
+                  <Camera size={24} className="text-primary mb-1" />
+                  <span className="text-xs">Tap to snap a selfie</span>
                 </button>
               )}
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <Button
                 type="submit"
                 disabled={step === "submitting" || !code || !fact || !photo}
                 isLoading={step === "submitting"}
-                className="w-full justify-center text-lg py-4"
+                className="w-full justify-center text-base py-3"
               >
                 {step === "error" ? "Try Again" : "Submit Connection"}
               </Button>
@@ -226,7 +225,6 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
           </form>
         </>
       )}
-      </div>
     </Modal>
   );
 }

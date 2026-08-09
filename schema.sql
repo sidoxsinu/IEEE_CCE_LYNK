@@ -218,7 +218,26 @@ BEGIN
   IF array_length(regexp_split_to_array(trim(p_text), '\s+'), 1) < 3 THEN
     RAISE EXCEPTION 'Clue must be at least 3 words';
   END IF;
+  
+  -- Lock-in: Prevent update if clue is already set
+  IF EXISTS (SELECT 1 FROM participants WHERE claimed_by_uid = auth.uid() AND self_clue IS NOT NULL) THEN
+    RAISE EXCEPTION 'Your clue is already set and cannot be changed.';
+  END IF;
+
   UPDATE participants SET self_clue = NULLIF(trim(p_text), '') WHERE claimed_by_uid = auth.uid();
+END;
+$$;
+
+-- Admin Reset Clue: Allows an admin to delete a participant's self_clue
+CREATE OR REPLACE FUNCTION admin_reset_clue(p_participant_id uuid)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF get_user_role() != 'admin' THEN
+    RAISE EXCEPTION 'Unauthorized: Admins only';
+  END IF;
+  
+  UPDATE participants SET self_clue = NULL WHERE id = p_participant_id;
 END;
 $$;
 

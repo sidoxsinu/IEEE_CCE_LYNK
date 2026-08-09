@@ -115,7 +115,7 @@ export default function AdminPage() {
   };
 
   const clearSelfClue = async (participantId: string) => {
-    const { error } = await supabase.rpc("admin_clear_self_clue", { p_participant_id: participantId });
+    const { error } = await supabase.rpc("admin_reset_clue", { p_participant_id: participantId });
     if (error) { alert("Failed: " + error.message); return; }
     setClueQueue(q => q.filter(item => item.id !== participantId));
   };
@@ -553,47 +553,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {view === "clue-moderation" && (
-        <div className="space-y-4">
-          <p className="text-sm font-bold text-text-muted">
-            All participants who submitted a personal clue. You can clear any clue here.
-          </p>
-          {loadingQueue ? (
-            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" size={32} /></div>
-          ) : clueQueue.length === 0 ? (
-            <Card className="p-8 text-center bg-white border-thicker shadow-[4px_4px_0px_#000]">
-              <p className="font-bold">No personal clues submitted yet.</p>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {clueQueue.map(item => (
-                <Card key={item.id} className="p-4 bg-white border-thicker shadow-[4px_4px_0px_#000]">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="min-w-0">
-                      <p className="font-black text-text uppercase truncate">{item.name}</p>
-                      <p className="text-xs text-text-muted font-bold">{item.department} &middot; {item.email}</p>
-                    </div>
-                    <button
-                      onClick={() => clearSelfClue(item.id)}
-                      className="flex-shrink-0 text-xs font-black uppercase text-error border-2 border-error px-3 py-1 hover:bg-error hover:text-white transition-colors min-h-[36px]"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <div className="bg-bg-alt border-2 border-text p-3 text-sm font-medium text-text">
-                    <p className="text-xs font-black uppercase text-text-muted mb-1">Personal clue</p>
-                    &ldquo;{item.self_clue}&rdquo;
-                  </div>
-                  <div className="mt-2 bg-white border-2 border-text-muted p-3 text-xs font-medium text-text-muted">
-                    <p className="text-xs font-black uppercase mb-1">Admin clue (baseline)</p>
-                    {item.clue_text}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

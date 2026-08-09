@@ -11,7 +11,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-alt/80 p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-bg-alt/80 p-4">
       {/* Stark background overlay */}
       <div 
         className="absolute inset-0 bg-text/40" 
@@ -27,7 +27,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between border-b-4 border-text p-4 bg-primary text-white">
+        <div className="flex items-center justify-between border-b-4 border-text p-4 bg-primary text-white shrink-0">
           <h2 id="modal-title" className="text-xl font-bold font-heading m-0 text-white">
             {title}
           </h2>
@@ -42,7 +42,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             </svg>
           </button>
         </div>
-        <div className="p-6 overflow-y-auto bg-bg">
+        <div className="p-6 overflow-y-auto bg-bg flex-1 min-h-0">
           {children}
         </div>
       </div>

@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
+import { getMySelfClue } from "@/app/actions/participant";
 
 // Inner component that reads search params
 function HomePageInner() {
@@ -50,18 +51,33 @@ function HomePageInner() {
     fetchMyCode();
   }, [fetchClueGrid, fetchMyCode]);
 
-  // Show first-login clue prompt after a brief delay (letting page settle)
+  // Check if user has set their personal clue yet
   useEffect(() => {
-    if (searchParams.get("firstLogin") === "1") {
-      const t = setTimeout(() => setShowSelfClueModal(true), 800);
-      return () => clearTimeout(t);
+    let mounted = true;
+    async function checkClue() {
+      try {
+        const res = await getMySelfClue();
+        if (mounted && !res.error && res.selfClue === null) {
+          setTimeout(() => {
+            if (mounted) setShowSelfClueModal(true);
+          }, 800);
+        }
+      } catch (err) {
+        console.error("Failed to check self clue:", err);
+      }
     }
-  }, [searchParams]);
+    if (userProfile?.uid) {
+      checkClue();
+    }
+    return () => { mounted = false; };
+  }, [userProfile?.uid]);
 
   const handleSelfClueDone = () => {
     setShowSelfClueModal(false);
-    // Remove the firstLogin param from URL without reload
-    router.replace("/home", { scroll: false });
+    // Remove URL params if any
+    if (searchParams.toString()) {
+      router.replace("/home", { scroll: false });
+    }
     fetchClueGrid(); // Refresh so the card reflects the new clue
   };
 
@@ -156,10 +172,8 @@ function HomePageInner() {
           <div className="grid grid-cols-1 gap-5">
             {gridParticipants.map((p) => {
               const isVerified = p.connection_status === "verified";
-              // Combine admin clue + personal clue
-              const displayClue = p.self_clue
-                ? `${p.clue_text} 💬 "${p.self_clue}"`
-                : p.clue_text;
+              // Display the user's personal clue. Fall back to admin clue if not set yet.
+              const displayClue = p.self_clue || p.clue_text || "No clue provided yet.";
 
               return (
                 <button
