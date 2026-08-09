@@ -66,11 +66,11 @@ function HomePageInner() {
         console.error("Failed to check self clue:", err);
       }
     }
-    if (userProfile?.uid) {
+    if (userProfile?.uid && userProfile?.role !== "admin") {
       checkClue();
     }
     return () => { mounted = false; };
-  }, [userProfile?.uid]);
+  }, [userProfile?.uid, userProfile?.role]);
 
   const handleSelfClueDone = () => {
     setShowSelfClueModal(false);
