@@ -33,14 +33,20 @@ function LoginContent() {
 
   // Redirect if already logged in with profile
   useEffect(() => {
-    if (!loading && user && userProfile) {
-      if (userProfile.role === "admin") {
-        router.push("/admin");
-      } else {
-        router.push("/home");
+    if (!loading) {
+      if (user && userProfile) {
+        if (userProfile.role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/home");
+        }
+      } else if (user && !userProfile && !matchError) {
+        // Automatically sign out if there is a local session but no user profile exists
+        // (e.g. if the admin deleted their account)
+        supabase.auth.signOut();
       }
     }
-  }, [user, userProfile, loading, router]);
+  }, [user, userProfile, loading, router, matchError, supabase.auth]);
 
   async function handleGoogleSignIn() {
     setSigningIn(true);
