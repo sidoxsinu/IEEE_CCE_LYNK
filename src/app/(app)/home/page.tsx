@@ -89,10 +89,10 @@ function HomePageInner() {
 
   return (
     <div className="px-4 pt-8 pb-safe-bottom min-h-dvh bg-bg-alt">
-      
+
       {/* Header */}
       <div className="mb-6">
-        <p className="text-text-muted font-bold text-sm uppercase mb-1 tracking-wider">Welcome back,</p>
+        <p className="text-text-muted font-bold text-sm uppercase mb-1 tracking-wider">Welcome,</p>
         <h1 className="text-4xl font-black uppercase">
           {userProfile?.displayName?.split(" ")[0] || "Participant"} 👋
         </h1>
@@ -142,7 +142,7 @@ function HomePageInner() {
           <Card className="p-6 text-center border-error bg-red-50">
             <h3 className="text-error font-bold mb-2">Error loading clues</h3>
             <p className="text-sm text-text-muted mb-4">{error}</p>
-            <button 
+            <button
               onClick={fetchClueGrid}
               className="px-4 py-2 bg-error text-white font-bold text-sm border-2 border-text shadow-[2px_2px_0px_#000] active:translate-y-1 active:translate-x-1 active:shadow-none"
             >
@@ -181,13 +181,12 @@ function HomePageInner() {
                   onClick={() => setSelectedParticipant(p)}
                   className={`text-left block w-full p-0 bg-transparent border-0 outline-none`}
                 >
-                  <Card 
+                  <Card
                     hoverable
-                    className={`p-5 h-full ${
-                      isVerified
+                    className={`p-5 h-full ${isVerified
                         ? "bg-primary text-white border-thicker"
                         : "bg-white border-thicker"
-                    }`}
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <span className={`text-xs font-black uppercase tracking-widest ${isVerified ? 'text-white' : 'text-primary'}`}>
@@ -195,7 +194,7 @@ function HomePageInner() {
                       </span>
                       {isVerified && (
                         <Badge variant="success" className="shadow-[2px_2px_0px_#000]">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M20 6 9 17l-5-5"/></svg>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M20 6 9 17l-5-5" /></svg>
                           Connected
                         </Badge>
                       )}

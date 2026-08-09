@@ -255,3 +255,22 @@ h1, h2, h3, h4, h5, h6 {
   background: #000000;
   border: 2px solid var(--color-bg-alt);
 }
+
+/* ── Custom Animations ── */
+@keyframes float-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes morph-droplet {
+  0% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+}
+
+.animate-droplet {
+  animation: morph-droplet 8s ease-in-out infinite;
+}
+.animate-float-bounce {
+  animation: float-bounce 3s ease-in-out infinite;
+}

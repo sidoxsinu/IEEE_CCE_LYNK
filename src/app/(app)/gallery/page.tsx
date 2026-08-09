@@ -125,6 +125,8 @@ export default function GalleryPage() {
               // Randomize vertical and horizontal offset slightly to break the grid feel
               const marginTop = (intHash % 60) - 30; 
               const marginLeft = ((intHash >> 4) % 40) - 20;
+              // Desync animations
+              const animDelay = (intHash % 20) * -0.3; // Negative delay to start immediately at different points
 
               return (
                 <motion.div
@@ -132,12 +134,10 @@ export default function GalleryPage() {
                   layout
                   initial={{ 
                     opacity: 0, 
-                    y: shouldReduceMotion ? 0 : -50,
                     scale: 0.8 
                   }}
                   animate={{ 
                     opacity: 1, 
-                    y: 0,
                     scale: 1 
                   }}
                   exit={{ 
@@ -155,10 +155,14 @@ export default function GalleryPage() {
                     height: `${baseSize}px`,
                     marginTop: `${marginTop}px`,
                     marginLeft: `${marginLeft}px`,
+                    animationDelay: `${animDelay}s`,
                   }}
-                  className="relative flex-shrink-0 z-0 hover:z-50"
+                  className="relative flex-shrink-0 z-0 hover:z-50 animate-float-bounce"
                 >
-                  <div className="w-full h-full rounded-full overflow-hidden border-4 border-text shadow-[4px_4px_0px_#000] bg-white transition-transform hover:-translate-y-2 hover:shadow-hard-hover cursor-pointer group">
+                  <div 
+                    className="w-full h-full animate-droplet overflow-hidden border-4 border-text shadow-[4px_4px_0px_#000] bg-white hover:shadow-hard-hover cursor-pointer group"
+                    style={{ animationDelay: `${animDelay * 1.5}s` }}
+                  >
                     <img 
                       src={item.selfie_url} 
                       alt="Connection Selfie" 
