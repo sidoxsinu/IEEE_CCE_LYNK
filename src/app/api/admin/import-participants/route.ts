@@ -39,14 +39,18 @@ export async function POST(request: Request) {
     }
 
     // Format rows into participants
-    const participants: Omit<Participant, 'id' | 'createdAt'>[] = rows.map((row: any) => {
-      const name = row['Name'] || '';
-      const email = row['Email'] || '';
-      const department = row['Department'] || '';
-      const paperTitle = row['Paper Title'] || '';
-      const interest = row['Interest'] || row['Fun Fact'] || '';
+    const participants = rows.map((row: any) => {
+      const name = row['Name']?.trim() || '';
+      const email = row['Email']?.trim() || '';
+      const department = row['Department']?.trim() || '';
+      const paperTitle = row['Paper Title']?.trim() || '';
+      const interest = row['Interest']?.trim() || row['Fun Fact']?.trim() || '';
       
-      const firstLetter = name.trim().charAt(0).toUpperCase();
+      if (!name || !email || !department || !paperTitle) {
+        throw new Error(`Row missing required fields: ${JSON.stringify(row)}`);
+      }
+
+      const firstLetter = name.charAt(0).toUpperCase();
 
       let clueText = `A participant from ${department} who authored '${paperTitle}'. First name starts with ${firstLetter}.`;
       if (interest) {
@@ -57,28 +61,32 @@ export async function POST(request: Request) {
         name,
         email,
         department,
-        paperTitle,
+        paper_title: paperTitle,
         interest,
-        clueText,
-        uniqueCode: generateUniqueCode(),
-        claimedByUid: null,
-        connectionsMadeCount: 0,
+        clue_text: clueText,
+        unique_code: generateUniqueCode(),
+        claimed_by_uid: null,
+        connections_made_count: 0,
       };
     });
 
     const adminDb = createAdminClient();
-    
-    const { data, error } = await adminDb
+
+    // Safe re-import: only insert new rows, skip existing emails (preserves unique_code).
+    const { data: insertedData, error: insertError } = await adminDb
       .from('participants')
-      .insert(participants)
+      .upsert(participants, {
+        onConflict: 'email',
+        ignoreDuplicates: true,
+      })
       .select();
 
-    if (error) {
-      console.error('Insert error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, count: data.length });
+    return NextResponse.json({ success: true, count: insertedData?.length ?? 0 });
 
   } catch (error: any) {
     console.error('Import error:', error);

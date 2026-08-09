@@ -1,22 +1,30 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ConnectionModal, ParticipantCard } from "@/components/ConnectionModal";
+import { SelfClueModal } from "@/components/SelfClueModal";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
 
-export default function HomePage() {
+// Inner component that reads search params
+function HomePageInner() {
   const { userProfile, loading } = useAuth();
+  const supabase = createClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [participants, setParticipants] = useState<ParticipantCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedParticipant, setSelectedParticipant] = useState<ParticipantCard | null>(null);
-  
-  const supabase = createClient();
+  const [showSelfClueModal, setShowSelfClueModal] = useState(false);
+  const [myCode, setMyCode] = useState<string | null>(null);
 
-  const fetchClueGrid = async () => {
+  const fetchClueGrid = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -29,15 +37,36 @@ export default function HomePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase]);
+
+  // Fetch user's own unique code
+  const fetchMyCode = useCallback(async () => {
+    const { data } = await supabase.rpc("get_my_code");
+    if (data) setMyCode(data);
+  }, [supabase]);
 
   useEffect(() => {
     fetchClueGrid();
-  }, [supabase]);
+    fetchMyCode();
+  }, [fetchClueGrid, fetchMyCode]);
+
+  // Show first-login clue prompt after a brief delay (letting page settle)
+  useEffect(() => {
+    if (searchParams.get("firstLogin") === "1") {
+      const t = setTimeout(() => setShowSelfClueModal(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams]);
+
+  const handleSelfClueDone = () => {
+    setShowSelfClueModal(false);
+    // Remove the firstLogin param from URL without reload
+    router.replace("/home", { scroll: false });
+    fetchClueGrid(); // Refresh so the card reflects the new clue
+  };
 
   // Exclude self from grid if user is also a participant
   const gridParticipants = participants.filter(p => p.claimed_by_uid !== userProfile?.uid);
-
   const totalParticipants = gridParticipants.length;
   const verifiedConnections = gridParticipants.filter(p => p.connection_status === "verified").length;
   const progressPercent = totalParticipants > 0 ? (verifiedConnections / totalParticipants) * 100 : 0;
@@ -52,6 +81,19 @@ export default function HomePage() {
           {userProfile?.displayName?.split(" ")[0] || "Participant"} 👋
         </h1>
       </div>
+
+      {/* Your Code Badge — persistent fixed strip at top */}
+      {myCode && (
+        <div className="flex items-center gap-3 mb-6 bg-primary border-4 border-text shadow-[4px_4px_0px_#000] px-4 py-3">
+          <div>
+            <p className="text-white text-xs font-black uppercase tracking-widest mb-0.5">Your code</p>
+            <p className="text-white font-black text-2xl tracking-[0.2em] font-mono">{myCode}</p>
+          </div>
+          <div className="ml-auto text-white text-xs font-bold text-right leading-relaxed">
+            Tell others<br />this code ↑
+          </div>
+        </div>
+      )}
 
       {/* Progress Card */}
       <Card className="p-5 mb-8 bg-white border-thicker">
@@ -107,13 +149,18 @@ export default function HomePage() {
             </div>
             <h3 className="text-xl font-black uppercase mb-2">No participants yet</h3>
             <p className="text-text-muted font-medium text-sm leading-relaxed">
-              The event organizer hasn&apos;t imported participant data yet. Check back when the event starts!
+              The event organiser hasn&apos;t imported participant data yet. Check back when the event starts!
             </p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-5">
             {gridParticipants.map((p) => {
               const isVerified = p.connection_status === "verified";
+              // Combine admin clue + personal clue
+              const displayClue = p.self_clue
+                ? `${p.clue_text} 💬 "${p.self_clue}"`
+                : p.clue_text;
+
               return (
                 <button
                   key={p.id}
@@ -146,7 +193,7 @@ export default function HomePage() {
                       )}
                     </div>
                     <p className={`text-base font-semibold leading-relaxed ${isVerified ? "text-white" : "text-text"}`}>
-                      &quot;{p.clue_text}&quot;
+                      &quot;{displayClue}&quot;
                     </p>
                   </Card>
                 </button>
@@ -165,6 +212,19 @@ export default function HomePage() {
           }}
         />
       )}
+
+      {/* First-login self clue prompt */}
+      {showSelfClueModal && (
+        <SelfClueModal onDone={handleSelfClueDone} />
+      )}
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-12"><div className="w-10 h-10 rounded-full border-4 border-text border-t-primary animate-spin" /></div>}>
+      <HomePageInner />
+    </Suspense>
   );
 }

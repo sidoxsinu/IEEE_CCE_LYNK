@@ -115,20 +115,47 @@ export default function LeaderboardPage() {
           </p>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {entries.map((entry, idx) => (
-            <Card key={entry.participant_id} className={`p-4 flex items-center gap-4 border-thicker ${idx < 3 ? 'bg-primary text-white shadow-[6px_6px_0px_#000] transform -translate-y-1' : 'bg-white text-text'}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-black shrink-0 border-2 border-text shadow-[2px_2px_0px_#000] ${idx === 0 ? 'bg-warning' : idx === 1 ? 'bg-surface-300' : idx === 2 ? 'bg-error' : 'bg-bg-alt text-text'}`}>
-                #{idx + 1}
-              </div>
-              <div className="flex-1 font-black text-xl truncate uppercase">
-                {entry.name}
-              </div>
-              <Badge variant={idx < 3 ? "default" : "primary"} className={`text-lg font-black px-4 py-1 shadow-[2px_2px_0px_#000] ${idx < 3 ? 'bg-white text-primary border-text' : ''}`}>
-                {entry.connections_made_count}
-              </Badge>
-            </Card>
-          ))}
+        <div className="space-y-3">
+          {entries.map((entry, idx) => {
+            // Podium colour configs
+            const podium = [
+              { card: 'bg-[#FFB800] border-text', badge: 'bg-text text-white', rankBg: 'bg-white text-[#FFB800]', label: '🥇', nameColor: 'text-text' },
+              { card: 'bg-[#C0C0C0] border-text', badge: 'bg-text text-white', rankBg: 'bg-white text-text',      label: '🥈', nameColor: 'text-text' },
+              { card: 'bg-[#CD7F32] border-text', badge: 'bg-text text-white', rankBg: 'bg-white text-[#CD7F32]', label: '🥉', nameColor: 'text-text' },
+            ];
+            const p = podium[idx];
+            const isTop3 = idx < 3;
+
+            return (
+              <Card
+                key={entry.participant_id}
+                className={`p-4 flex items-center gap-4 border-thicker ${
+                  isTop3
+                    ? `${p.card} shadow-[6px_6px_0px_#000] -translate-y-0.5`
+                    : 'bg-white border-text shadow-[4px_4px_0px_#000]'
+                }`}
+              >
+                {/* Rank circle */}
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 border-3 border-text shadow-[2px_2px_0px_#000] font-black text-base ${
+                  isTop3 ? p.rankBg : 'bg-bg-alt text-text'
+                }`}>
+                  {isTop3 ? p.label : `#${idx + 1}`}
+                </div>
+
+                {/* Name */}
+                <div className={`flex-1 font-black text-lg truncate uppercase ${isTop3 ? p.nameColor : 'text-text'}`}>
+                  {entry.name}
+                </div>
+
+                {/* Connection count */}
+                <div className={`flex-shrink-0 font-black text-xl px-3 py-1 border-2 border-text shadow-[2px_2px_0px_#000] ${
+                  isTop3 ? 'bg-text text-white' : 'bg-primary text-white'
+                }`}>
+                  {entry.connections_made_count}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

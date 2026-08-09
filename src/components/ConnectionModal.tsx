@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 export interface ParticipantCard {
   id: string;
   clue_text: string;
+  self_clue?: string | null;
   department: string;
   connections_made_count: number;
   connection_status: string | null;
@@ -90,7 +91,7 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
       if (rpcError) throw rpcError;
 
       // 4. Handle RPC Result
-      const status = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0].status : null;
+      const status = Array.isArray(rpcData) && rpcData.length > 0 ? rpcData[0].connection_status : null;
 
       if (status === "verified") {
         setStep("success");
@@ -127,7 +128,7 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
     <Modal isOpen={true} onClose={() => {
       if (step !== "submitting") onClose();
     }} title="Make a Connection">
-      
+      <div className="max-h-[75vh] overflow-y-auto overflow-x-hidden pr-2 -mr-2">
       {step === "success" ? (
         <div className="text-center py-10">
           <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
@@ -158,7 +159,7 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
             <Input
               label="Their Unique Code"
               type="text"
-              placeholder="Ask them for their 4-digit code"
+              placeholder="Ask them for their 6-character code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               disabled={step === "submitting"}
@@ -225,6 +226,7 @@ export function ConnectionModal({ participant, onClose, onSuccess }: ConnectionM
           </form>
         </>
       )}
+      </div>
     </Modal>
   );
 }

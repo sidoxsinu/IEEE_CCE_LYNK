@@ -103,7 +103,9 @@ export async function GET(request: Request) {
       if (participantUpdateError) throw participantUpdateError
     }
 
-    return NextResponse.redirect(`${origin}/home`)
+    // For new non-admin participants, flag first login so /home shows the self-clue prompt
+    const redirectPath = participantId ? '/home?firstLogin=1' : '/home';
+    return NextResponse.redirect(`${origin}${redirectPath}`)
 
   } catch (err) {
     console.error('Error during auth callback setup:', err)
