@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
 interface GalleryItem {
@@ -12,12 +11,24 @@ interface GalleryItem {
   created_at: string;
 }
 
+interface PhysicsNode {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+}
+
 export default function GalleryPage() {
   const supabase = createClient();
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-  const shouldReduceMotion = useReducedMotion();
+
+  const physicsRef = useRef<Map<string, PhysicsNode>>(new Map());
+  const domRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const animationFrameRef = useRef<number>();
 
   const fetchGallery = useCallback(async () => {
     setLoading(true);
@@ -29,24 +40,22 @@ export default function GalleryPage() {
       
     if (!error && data) {
       setItems(data);
-      // Rough estimation of total count could be max(current array length, totalCount)
       setTotalCount(prev => Math.max(prev, data.length)); 
     }
     setLoading(false);
   }, [supabase]);
 
+  // Supabase Realtime logic
   useEffect(() => {
     fetchGallery();
 
     const channel = supabase.channel("gallery_changes");
-
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "public_gallery" },
       (payload) => {
         const newItem = payload.new as GalleryItem;
         setItems(current => {
-          // Prevent duplicates if already fetched during a reconnect race condition
           if (current.some(item => item.id === newItem.id)) return current;
           return [newItem, ...current].slice(0, 150);
         });
@@ -62,16 +71,12 @@ export default function GalleryPage() {
       }
     )
     .subscribe((status) => {
-      // Handle reconnections by refetching snapshot
-      if (status === "SUBSCRIBED") {
-        // Only refetch if not initial load to avoid double fetch
-        if (!loading) fetchGallery();
+      if (status === "SUBSCRIBED" && !loading) {
+        fetchGallery();
       }
     });
 
-    const handleOnline = () => {
-      fetchGallery();
-    };
+    const handleOnline = () => fetchGallery();
     window.addEventListener("online", handleOnline);
 
     return () => {
@@ -79,6 +84,95 @@ export default function GalleryPage() {
       window.removeEventListener("online", handleOnline);
     };
   }, [supabase, fetchGallery]);
+
+  // Physics Initialization
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    items.forEach(item => {
+      if (!physicsRef.current.has(item.id)) {
+        const hash = item.id.split('-')[0];
+        const intHash = parseInt(hash, 16);
+        const size = 60 + (intHash % 160);
+        
+        // Random start position within screen bounds
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        // Keep within bounds
+        const startX = Math.random() * Math.max(0, w - size);
+        const startY = Math.random() * Math.max(0, h - size);
+
+        // Very slow, relaxing drift (0.2 to 0.8 pixels per frame)
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.2 + (Math.random() * 0.6);
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+
+        physicsRef.current.set(item.id, { id: item.id, x: startX, y: startY, vx, vy, size });
+      }
+    });
+
+    // Cleanup deleted items
+    const currentIds = new Set(items.map(i => i.id));
+    for (const id of Array.from(physicsRef.current.keys())) {
+      if (!currentIds.has(id)) {
+        physicsRef.current.delete(id);
+        domRefs.current.delete(id);
+      }
+    }
+  }, [items]);
+
+  // Physics Animation Loop
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let lastTime = performance.now();
+
+    const loop = (time: number) => {
+      // Normalize dt so movement speed is consistent across screen refresh rates (e.g. 144hz vs 60hz)
+      let dt = (time - lastTime) / 16.666;
+      if (dt > 10) dt = 1; // Cap dt if tab was inactive to prevent huge jumps
+      lastTime = time;
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      physicsRef.current.forEach((node) => {
+        node.x += node.vx * dt;
+        node.y += node.vy * dt;
+
+        // Boundary checks
+        if (node.x <= 0) {
+          node.x = 0;
+          node.vx *= -1;
+        } else if (node.x + node.size >= w) {
+          node.x = w - node.size;
+          node.vx *= -1;
+        }
+
+        if (node.y <= 0) {
+          node.y = 0;
+          node.vy *= -1;
+        } else if (node.y + node.size >= h) {
+          node.y = h - node.size;
+          node.vy *= -1;
+        }
+
+        // Apply via ref
+        const el = domRefs.current.get(node.id);
+        if (el) {
+          el.style.transform = `translate(${node.x}px, ${node.y}px)`;
+        }
+      });
+
+      animationFrameRef.current = requestAnimationFrame(loop);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(loop);
+
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, []);
 
   if (loading && items.length === 0) {
     return (
@@ -89,76 +183,55 @@ export default function GalleryPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-bg-alt pt-8 pb-12 px-4 relative">
+    <div className="fixed inset-0 bg-bg-alt overflow-hidden touch-none">
       
-      {/* Header & Live Counter */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 sticky top-4 z-10">
-        <div>
-          <p className="text-sm font-bold text-text-muted uppercase tracking-widest text-center md:text-left">Shared Feed</p>
-          <h1 className="text-3xl md:text-4xl font-black uppercase text-text bg-bg-alt/80 px-2 -ml-2 rounded-lg">
+      {/* Header Overlay (Pointer events none so items pass underneath seamlessly, except for buttons) */}
+      <div className="absolute top-4 left-4 right-4 z-50 flex flex-col md:flex-row justify-between items-center md:items-start pointer-events-none">
+        <div className="flex flex-col items-center md:items-start mb-4 md:mb-0">
+          <p className="text-sm font-bold text-text-muted uppercase tracking-widest drop-shadow-md bg-bg-alt/50 px-2 rounded-lg inline-block backdrop-blur-sm mb-1">
+            Shared Feed
+          </p>
+          <h1 className="text-3xl md:text-4xl font-black uppercase text-text bg-bg-alt/80 backdrop-blur-md px-4 py-1 rounded-lg pointer-events-auto border-2 border-text shadow-[2px_2px_0px_#000] inline-block text-center">
             Live Gallery
           </h1>
         </div>
         
-        <div className="bg-white border-4 border-text shadow-[4px_4px_0px_#000] px-6 py-2 flex items-center gap-3">
+        <div className="bg-white border-4 border-text shadow-[4px_4px_0px_#000] px-6 py-2 flex items-center justify-center gap-3 pointer-events-auto">
           <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
           <span className="font-black text-xl">{totalCount} Connections</span>
         </div>
       </div>
 
-      {/* CSS Masonry Layout */}
       {items.length === 0 ? (
-        <div className="text-center py-20">
-          <h2 className="text-2xl font-black text-text-muted uppercase">No connections yet</h2>
-          <p className="text-text font-bold">Be the first to make a match!</p>
+        <div className="absolute inset-0 flex items-center justify-center flex-col z-10 pointer-events-none">
+          <div className="bg-bg-alt/80 backdrop-blur-sm px-8 py-6 text-center border-4 border-text shadow-[4px_4px_0px_#000]">
+            <h2 className="text-2xl font-black text-text-muted uppercase">No connections yet</h2>
+            <p className="text-text font-bold">Be the first to make a match!</p>
+          </div>
         </div>
       ) : (
-        <div className="flex flex-wrap justify-center items-center gap-2 py-10 max-w-7xl mx-auto">
-          <AnimatePresence>
-            {items.map((item, index) => {
-              // Create deterministic pseudo-random values based on the item ID
-              const hash = item.id.split('-')[0];
-              const intHash = parseInt(hash, 16);
-              
-              // Randomize size between 60px and 220px to match the varied collage effect
-              const baseSize = 60 + (intHash % 160);
-              // Randomize vertical and horizontal offset slightly to break the grid feel
-              const marginTop = (intHash % 60) - 30; 
-              const marginLeft = ((intHash >> 4) % 40) - 20;
-              // Desync animations
-              const animDelay = (intHash % 20) * -0.3; // Negative delay to start immediately at different points
+        <div className="absolute inset-0 z-0">
+          {items.map((item) => {
+            const hash = item.id.split('-')[0];
+            const intHash = parseInt(hash, 16);
+            const baseSize = 60 + (intHash % 160);
+            const animDelay = (intHash % 20) * -0.3;
 
-              return (
-                <motion.div
-                  key={item.id}
-                  layout
-                  initial={{ 
-                    opacity: 0, 
-                    scale: 0.8 
-                  }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: 1 
-                  }}
-                  exit={{ 
-                    opacity: 0, 
-                    scale: 0.5,
-                    transition: { duration: 0.3 }
-                  }}
-                  transition={{
-                    type: shouldReduceMotion ? "tween" : "spring",
-                    stiffness: 300,
-                    damping: 20
-                  }}
-                  style={{
-                    width: `${baseSize}px`,
-                    height: `${baseSize}px`,
-                    marginTop: `${marginTop}px`,
-                    marginLeft: `${marginLeft}px`,
-                    animationDelay: `${animDelay}s`,
-                  }}
-                  className="relative flex-shrink-0 z-0 hover:z-50 animate-float-bounce"
-                >
+            return (
+              <div
+                key={item.id}
+                ref={(el) => {
+                  if (el) domRefs.current.set(item.id, el);
+                  else domRefs.current.delete(item.id);
+                }}
+                className="absolute top-0 left-0 hover:z-[60]"
+                style={{ 
+                  width: `${baseSize}px`, 
+                  height: `${baseSize}px`,
+                }}
+                onDragStart={(e) => e.preventDefault()}
+              >
+                <div className="w-full h-full opacity-0 animate-fade-in" style={{ animationDelay: `${Math.random() * 0.5}s` }}>
                   <div 
                     className="w-full h-full animate-droplet overflow-hidden border-4 border-text shadow-[4px_4px_0px_#000] bg-white hover:shadow-hard-hover cursor-pointer group"
                     style={{ animationDelay: `${animDelay * 1.5}s` }}
@@ -166,14 +239,14 @@ export default function GalleryPage() {
                     <img 
                       src={item.selfie_url} 
                       alt="Connection Selfie" 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 pointer-events-none" 
                       loading="lazy"
                     />
                   </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -268,9 +268,17 @@ h1, h2, h3, h4, h5, h6 {
   100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .animate-droplet {
   animation: morph-droplet 8s ease-in-out infinite;
 }
 .animate-float-bounce {
   animation: float-bounce 3s ease-in-out infinite;
+}
+.animate-fade-in {
+  animation: fade-in 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
