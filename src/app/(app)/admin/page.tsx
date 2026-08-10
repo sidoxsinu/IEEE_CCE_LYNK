@@ -10,7 +10,7 @@ import Papa from "papaparse";
 import { Loader2, AlertCircle, CheckCircle, EyeOff, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
-type AdminView = "dashboard" | "event-controls" | "selfie-moderation" | "clue-moderation" | "import-export";
+type AdminView = "dashboard" | "event-controls" | "selfie-moderation" | "clue-moderation" | "import-export" | "manage-participants" | "join-requests";
 
 interface ConfigState {
   event_active: boolean;
@@ -37,6 +37,18 @@ interface ClueItem {
   self_clue: string;
 }
 
+interface JoinRequestItem {
+  id: string;
+  email: string;
+  name: string;
+  photo_url: string;
+  department: string;
+  paper_title: string;
+  clue_text: string;
+  status: string;
+  created_at: string;
+}
+
 export default function AdminPage() {
   const { userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -47,6 +59,7 @@ export default function AdminPage() {
   const [queue, setQueue] = useState<ModerationItem[]>([]);
   const [clueQueue, setClueQueue] = useState<ClueItem[]>([]);
   const [editingClue, setEditingClue] = useState<{id: string; value: string} | null>(null);
+  const [joinRequests, setJoinRequests] = useState<JoinRequestItem[]>([]);
   
   // Loading states
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -88,6 +101,9 @@ export default function AdminPage() {
     if (view === "manage-participants") {
       fetchParticipantsList();
     }
+    if (view === "join-requests") {
+      fetchJoinRequests();
+    }
   }, [view]);
 
   const fetchConfig = async () => {
@@ -125,6 +141,13 @@ export default function AdminPage() {
     setLoadingQueue(false);
   };
 
+  const fetchJoinRequests = async () => {
+    setLoadingQueue(true);
+    const { data, error } = await supabase.rpc("get_admin_join_requests");
+    if (!error && data) setJoinRequests(data);
+    setLoadingQueue(false);
+  };
+
   const handleDeleteParticipant = async (participantId: string, name: string) => {
     if (!window.confirm(`Are you SURE you want to completely delete all data for ${name}? This action cannot be undone and will delete all their connections and selfies.`)) return;
     
@@ -140,6 +163,20 @@ export default function AdminPage() {
     const { error } = await supabase.rpc("admin_reset_clue", { p_participant_id: participantId });
     if (error) { alert("Failed: " + error.message); return; }
     setClueQueue(q => q.filter(item => item.id !== participantId));
+  };
+
+  const handleJoinRequestAction = async (id: string, action: 'accept' | 'decline' | 'block') => {
+    if (!window.confirm(`Are you sure you want to ${action} this request?`)) return;
+    
+    if (action === 'accept') {
+      const { error } = await supabase.rpc("admin_accept_join_request", { p_request_id: id });
+      if (error) { alert("Failed to accept: " + error.message); return; }
+    } else {
+      const status = action === 'decline' ? 'declined' : 'blocked';
+      const { error } = await supabase.rpc("admin_update_join_request_status", { p_request_id: id, p_status: status });
+      if (error) { alert("Failed to update status: " + error.message); return; }
+    }
+    fetchJoinRequests(); // Refresh list
   };
 
   const toggleConfig = async (key: keyof ConfigState) => {
@@ -323,6 +360,7 @@ export default function AdminPage() {
             { id: "manage-participants", icon: "👥", label: "Manage Participants", desc: "View and delete participants" },
             { id: "selfie-moderation", icon: "📸", label: "Selfie Moderation", desc: "Hide inappropriate selfies" },
             { id: "clue-moderation", icon: "🕵️", label: "Clue Moderation", desc: "Clear inappropriate personal clues" },
+            { id: "join-requests", icon: "📩", label: "Join Requests", desc: "Review user access requests" },
           ].map(btn => (
             <button
               key={btn.id}
@@ -607,6 +645,76 @@ export default function AdminPage() {
                   >
                     Delete Data
                   </button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === "join-requests" && (
+        <div className="space-y-4">
+          <p className="text-sm font-bold text-text-muted">
+            Users requesting access to the platform. Accepting a user generates their participant record automatically.
+          </p>
+          {loadingQueue ? (
+            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" size={32} /></div>
+          ) : joinRequests.length === 0 ? (
+            <Card className="p-8 text-center bg-white border-thicker shadow-[4px_4px_0px_#000]">
+              <p className="font-bold">No join requests found.</p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {joinRequests.map(item => (
+                <Card key={item.id} className="p-4 bg-white border-thicker shadow-[4px_4px_0px_#000]">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-black text-text uppercase truncate text-lg">{item.name}</p>
+                        <Badge variant={
+                          item.status === 'accepted' ? 'success' : 
+                          item.status === 'declined' ? 'error' : 
+                          item.status === 'blocked' ? 'warning' : 'default'
+                        } className="text-[10px] py-0.5 px-1 uppercase">{item.status}</Badge>
+                      </div>
+                      <p className="text-xs text-text-muted font-bold truncate mb-2">{item.department} &middot; {item.email}</p>
+                      <div className="bg-bg-alt border-2 border-text p-2 text-sm font-medium text-text mb-2">
+                        <p className="text-xs font-black uppercase text-text-muted mb-1">Personal clue</p>
+                        &ldquo;{item.clue_text}&rdquo;
+                      </div>
+                      {item.paper_title && (
+                        <p className="text-xs text-text-muted font-bold">Paper/Interest: {item.paper_title}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap md:flex-col gap-2 flex-shrink-0">
+                      {item.status !== 'accepted' && (
+                        <Button 
+                          variant="primary" 
+                          onClick={() => handleJoinRequestAction(item.id, 'accept')}
+                          className="min-h-[36px] text-xs px-3 py-1"
+                        >
+                          Accept
+                        </Button>
+                      )}
+                      {item.status !== 'declined' && (
+                        <Button 
+                          variant="secondary" 
+                          onClick={() => handleJoinRequestAction(item.id, 'decline')}
+                          className="min-h-[36px] text-xs px-3 py-1"
+                        >
+                          Decline
+                        </Button>
+                      )}
+                      {item.status !== 'blocked' && (
+                        <button 
+                          onClick={() => handleJoinRequestAction(item.id, 'block')}
+                          className="min-h-[36px] text-xs font-black uppercase text-error border-2 border-error px-3 py-1 hover:bg-error hover:text-white transition-colors"
+                        >
+                          Block
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </Card>
               ))}
             </div>

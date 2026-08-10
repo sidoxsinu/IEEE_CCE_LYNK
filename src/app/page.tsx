@@ -25,6 +25,16 @@ function LoginContent() {
         setMatchError("Your email is not registered for this event. Please contact the event organizer.");
       } else if (errorParam === 'AlreadyClaimed') {
         setMatchError("This participant account has already been claimed by another login. Please contact the admin.");
+      } else if (errorParam === 'RequestSubmitted') {
+        setMatchError("Your request to join has been successfully submitted! Please wait for the admin to approve it.");
+      } else if (errorParam === 'PendingApproval') {
+        setMatchError("Your request is currently pending admin approval. Please check back later.");
+      } else if (errorParam === 'Declined') {
+        setMatchError("Your request to join was declined by the admin.");
+      } else if (errorParam === 'Blocked') {
+        setMatchError("Your account has been blocked from accessing this application.");
+      } else if (errorParam === 'SetupError') {
+        setMatchError("There was an error setting up your account. Please contact the admin.");
       } else {
         setMatchError(`Sign-in failed: ${errorParam} ${errorDesc ? '(' + errorDesc + ')' : ''}`);
       }
@@ -41,9 +51,8 @@ function LoginContent() {
           router.push("/home");
         }
       } else if (user && !userProfile && !matchError) {
-        // Automatically sign out if there is a local session but no user profile exists
-        // (e.g. if the admin deleted their account)
-        supabase.auth.signOut();
+        // If they have a session but no profile, redirect to request-access
+        router.push("/request-access");
       }
     }
   }, [user, userProfile, loading, router, matchError, supabase.auth]);

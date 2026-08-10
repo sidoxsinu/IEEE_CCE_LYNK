@@ -474,3 +474,101 @@ WITH CHECK (
   bucket_id = 'selfies' AND 
   (storage.foldername(name))[1] = auth.uid()::text
 );
+
+
+-- 6. Join Requests for Unknown Users
+CREATE TABLE join_requests (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  email text NOT NULL UNIQUE,
+  name text NOT NULL,
+  photo_url text,
+  department text NOT NULL,
+  paper_title text,
+  clue_text text,
+  status text DEFAULT 'pending', -- 'pending', 'accepted', 'declined', 'blocked'
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE join_requests ENABLE ROW LEVEL SECURITY;
+
+-- Admins can read/update all requests
+DROP POLICY IF EXISTS "Admins can manage join requests" ON join_requests;
+CREATE POLICY "Admins can manage join requests" ON join_requests FOR ALL TO authenticated
+USING (get_user_role() = 'admin')
+WITH CHECK (get_user_role() = 'admin');
+
+-- Authenticated users (even without user profiles) can insert their own request
+DROP POLICY IF EXISTS "Authenticated users can insert join requests" ON join_requests;
+CREATE POLICY "Authenticated users can insert join requests" ON join_requests FOR INSERT TO authenticated
+WITH CHECK (true);
+
+-- Authenticated users can read their own request by email
+DROP POLICY IF EXISTS "Users can read own join request" ON join_requests;
+CREATE POLICY "Users can read own join request" ON join_requests FOR SELECT TO authenticated
+USING (email = (SELECT email FROM auth.users WHERE id = auth.uid()));
+
+-- RPC to get join requests for admin
+CREATE OR REPLACE FUNCTION get_admin_join_requests()
+RETURNS TABLE (
+  id uuid,
+  email text,
+  name text,
+  photo_url text,
+  department text,
+  paper_title text,
+  clue_text text,
+  status text,
+  created_at timestamptz
+)
+LANGUAGE sql SECURITY DEFINER AS $$
+  SELECT id, email, name, photo_url, department, paper_title, clue_text, status, created_at
+  FROM join_requests
+  WHERE get_user_role() = 'admin'
+  ORDER BY created_at DESC;
+$$;
+
+-- RPC to accept join request and create participant
+CREATE OR REPLACE FUNCTION admin_accept_join_request(p_request_id uuid)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_req record;
+  v_unique_code text;
+BEGIN
+  IF get_user_role() != 'admin' THEN
+    RAISE EXCEPTION 'Unauthorized: Admins only';
+  END IF;
+
+  SELECT * INTO v_req FROM join_requests WHERE id = p_request_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Request not found';
+  END IF;
+
+  IF v_req.status = 'accepted' THEN
+    RETURN;
+  END IF;
+
+  -- Generate a random 6-character unique code
+  v_unique_code := upper(substring(md5(random()::text), 1, 6));
+
+  -- Insert into participants
+  INSERT INTO participants (name, email, department, paper_title, clue_text, unique_code)
+  VALUES (v_req.name, v_req.email, v_req.department, COALESCE(v_req.paper_title, ''), COALESCE(v_req.clue_text, ''), v_unique_code);
+
+  -- Update request status
+  UPDATE join_requests SET status = 'accepted' WHERE id = p_request_id;
+END;
+$$;
+
+-- RPC to change join request status
+CREATE OR REPLACE FUNCTION admin_update_join_request_status(p_request_id uuid, p_status text)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF get_user_role() != 'admin' THEN
+    RAISE EXCEPTION 'Unauthorized: Admins only';
+  END IF;
+
+  UPDATE join_requests SET status = p_status WHERE id = p_request_id;
+END;
+$$;

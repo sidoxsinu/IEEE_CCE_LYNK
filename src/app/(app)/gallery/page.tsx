@@ -28,7 +28,7 @@ export default function GalleryPage() {
 
   const physicsRef = useRef<Map<string, PhysicsNode>>(new Map());
   const domRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   const fetchGallery = useCallback(async () => {
     setLoading(true);
