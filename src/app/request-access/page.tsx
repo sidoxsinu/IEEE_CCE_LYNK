@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
+import { submitJoinRequest } from "./actions";
 
 export default function RequestAccessPage() {
   const { user, userProfile, loading } = useAuth();
@@ -17,9 +18,9 @@ export default function RequestAccessPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
+    name: "",
     department: "",
-    paperTitle: "",
-    clueText: ""
+    paperTitle: ""
   });
 
   // Redirect if already fully registered
@@ -31,9 +32,13 @@ export default function RequestAccessPage() {
       } else if (userProfile) {
         // Fully registered
         router.push("/home");
+      } else if (!formData.name) {
+        // Initialize name field if empty
+        const defaultName = user.user_metadata?.full_name || user.email?.split('@')[0] || "";
+        setFormData(d => ({ ...d, name: defaultName }));
       }
     }
-  }, [user, userProfile, loading, router]);
+  }, [user, userProfile, loading, router, formData.name]);
 
   if (loading || !user || userProfile) {
     return (
@@ -48,24 +53,20 @@ export default function RequestAccessPage() {
     setSubmitting(true);
     setError(null);
 
-    const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || "Unknown";
     const photoUrl = user.user_metadata?.avatar_url || "";
 
     try {
-      const { error: insertError } = await supabase.from('join_requests').insert({
-        email: user.email,
-        name: displayName,
+      await submitJoinRequest({
+        email: user.email || "",
+        name: formData.name || (user.user_metadata?.full_name || user.email?.split('@')[0] || "Unknown"),
         photo_url: photoUrl,
         department: formData.department,
-        paper_title: formData.paperTitle,
-        clue_text: formData.clueText
+        paper_title: formData.paperTitle
       });
 
-      if (insertError) {
-        throw insertError;
-      }
-
+      // We need to sign them out so they hit the pending state when they try to log back in
       await supabase.auth.signOut();
+      
       router.push("/?error=RequestSubmitted");
     } catch (err: any) {
       console.error("Error submitting request:", err);
@@ -92,6 +93,17 @@ export default function RequestAccessPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4 flex flex-col">
           <div className="space-y-1">
+            <label className="text-sm font-bold text-text uppercase">Name / Nickname *</label>
+            <input 
+              type="text" 
+              required
+              className="w-full border-2 border-text p-2 rounded-none focus:outline-none focus:ring-2 focus:ring-primary bg-bg"
+              value={formData.name}
+              onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-1">
             <label className="text-sm font-bold text-text uppercase">Department *</label>
             <input 
               type="text" 
@@ -109,18 +121,6 @@ export default function RequestAccessPage() {
               className="w-full border-2 border-text p-2 rounded-none focus:outline-none focus:ring-2 focus:ring-primary bg-bg"
               value={formData.paperTitle}
               onChange={e => setFormData(d => ({ ...d, paperTitle: e.target.value }))}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-bold text-text uppercase">Personal Clue *</label>
-            <p className="text-xs text-text/60 mb-2">A fun fact or hint about yourself for others to find you in the bingo.</p>
-            <textarea 
-              required
-              rows={3}
-              className="w-full border-2 border-text p-2 rounded-none focus:outline-none focus:ring-2 focus:ring-primary bg-bg resize-none"
-              value={formData.clueText}
-              onChange={e => setFormData(d => ({ ...d, clueText: e.target.value }))}
             />
           </div>
 

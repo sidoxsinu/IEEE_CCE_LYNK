@@ -68,26 +68,27 @@ export async function GET(request: Request) {
 
     if (!isAdmin && !participantData) {
       // User is not an admin and not a participant
-      const { data: requestData } = await adminClient
+      const { data: requests } = await adminClient
         .from('join_requests')
         .select('status')
         .eq('email', email)
-        .limit(1)
-        .single()
         
-      if (requestData) {
-        if (requestData.status === 'blocked') {
+      if (requests && requests.length > 0) {
+        const statuses = requests.map(r => r.status);
+        
+        if (statuses.includes('blocked')) {
           await supabase.auth.signOut()
           return NextResponse.redirect(`${origin}/?error=Blocked`)
-        } else if (requestData.status === 'declined') {
+        } else if (statuses.includes('declined')) {
           await supabase.auth.signOut()
           return NextResponse.redirect(`${origin}/?error=Declined`)
-        } else if (requestData.status === 'pending') {
+        } else if (statuses.includes('pending')) {
           await supabase.auth.signOut()
           return NextResponse.redirect(`${origin}/?error=PendingApproval`)
-        } else if (requestData.status === 'accepted') {
-          await supabase.auth.signOut()
-          return NextResponse.redirect(`${origin}/?error=SetupError`)
+        } else {
+          // If they only have 'accepted' but no participant record, it's a zombie request 
+          // from before they were deleted by an admin. Let them request access again.
+          return NextResponse.redirect(`${origin}/request-access`)
         }
       } else {
         // Keep them signed in, but they don't have a users record yet.

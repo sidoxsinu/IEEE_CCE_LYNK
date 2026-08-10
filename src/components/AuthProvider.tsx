@@ -114,6 +114,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase]);
 
+  // Add visibility listener to re-verify profile if they switch tabs
+  useEffect(() => {
+    if (!user) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const { data, error } = await supabase
+          .from("users")
+          .select("uid")
+          .eq("uid", user.id)
+          .single();
+
+        if (error || !data) {
+          // Profile was deleted (e.g., blocked by admin), sign them out immediately
+          await supabase.auth.signOut();
+          setUser(null);
+          setUserProfile(null);
+          window.location.href = "/?error=Blocked";
+        }
+      }
+    };
+
+    let lastCheck = Date.now();
+    const handleClick = () => {
+      const now = Date.now();
+      if (now - lastCheck > 15000) { // Check at most every 15 seconds on click
+        lastCheck = now;
+        handleVisibilityChange();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("click", handleClick);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("click", handleClick);
+    };
+  }, [user, supabase]);
+
   return (
     <AuthContext.Provider value={{ user, userProfile, loading, error }}>
       {children}

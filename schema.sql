@@ -411,9 +411,9 @@ $$;
 
 -- Admin Get Participants: Lists all participants and claim status
 CREATE OR REPLACE FUNCTION get_admin_participants_list()
-RETURNS TABLE (id uuid, name text, email text, department text, claimed boolean)
+RETURNS TABLE (id uuid, name text, email text, department text, paper_title text, claimed boolean)
 LANGUAGE sql SECURITY DEFINER AS $$
-  SELECT id, name, email, department, (claimed_by_uid IS NOT NULL)
+  SELECT id, name, email, department, paper_title, (claimed_by_uid IS NOT NULL)
   FROM participants
   ORDER BY name ASC;
 $$;
@@ -444,6 +444,30 @@ BEGIN
 
   -- Delete the participant
   DELETE FROM participants WHERE id = p_id;
+END;
+$$;
+
+-- Admin Update Participant: Allows admin to edit participant details
+CREATE OR REPLACE FUNCTION admin_update_participant(p_id uuid, p_name text, p_department text, p_paper_title text)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_uid uuid;
+BEGIN
+  IF get_user_role() != 'admin' THEN
+    RAISE EXCEPTION 'Unauthorized: Admins only';
+  END IF;
+
+  UPDATE participants SET 
+    name = p_name,
+    department = p_department,
+    paper_title = p_paper_title
+  WHERE id = p_id RETURNING claimed_by_uid INTO v_uid;
+
+  -- If claimed, keep the users table display_name in sync
+  IF v_uid IS NOT NULL THEN
+    UPDATE users SET display_name = p_name WHERE uid = v_uid;
+  END IF;
 END;
 $$;
 
@@ -484,7 +508,6 @@ CREATE TABLE join_requests (
   photo_url text,
   department text NOT NULL,
   paper_title text,
-  clue_text text,
   status text DEFAULT 'pending', -- 'pending', 'accepted', 'declined', 'blocked'
   created_at timestamptz DEFAULT now()
 );
@@ -516,12 +539,11 @@ RETURNS TABLE (
   photo_url text,
   department text,
   paper_title text,
-  clue_text text,
   status text,
   created_at timestamptz
 )
 LANGUAGE sql SECURITY DEFINER AS $$
-  SELECT id, email, name, photo_url, department, paper_title, clue_text, status, created_at
+  SELECT id, email, name, photo_url, department, paper_title, status, created_at
   FROM join_requests
   WHERE get_user_role() = 'admin'
   ORDER BY created_at DESC;
@@ -553,7 +575,7 @@ BEGIN
 
   -- Insert into participants
   INSERT INTO participants (name, email, department, paper_title, clue_text, unique_code)
-  VALUES (v_req.name, v_req.email, v_req.department, COALESCE(v_req.paper_title, ''), COALESCE(v_req.clue_text, ''), v_unique_code);
+  VALUES (v_req.name, v_req.email, v_req.department, COALESCE(v_req.paper_title, ''), '', v_unique_code);
 
   -- Update request status
   UPDATE join_requests SET status = 'accepted' WHERE id = p_request_id;
@@ -564,11 +586,21 @@ $$;
 CREATE OR REPLACE FUNCTION admin_update_join_request_status(p_request_id uuid, p_status text)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_email text;
+  v_participant_id uuid;
 BEGIN
   IF get_user_role() != 'admin' THEN
     RAISE EXCEPTION 'Unauthorized: Admins only';
   END IF;
 
-  UPDATE join_requests SET status = p_status WHERE id = p_request_id;
+  UPDATE join_requests SET status = p_status WHERE id = p_request_id RETURNING email INTO v_email;
+
+  IF p_status = 'blocked' THEN
+    SELECT id INTO v_participant_id FROM participants WHERE email = v_email;
+    IF FOUND THEN
+      PERFORM admin_delete_participant(v_participant_id);
+    END IF;
+  END IF;
 END;
 $$;

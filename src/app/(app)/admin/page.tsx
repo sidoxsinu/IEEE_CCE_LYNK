@@ -44,7 +44,6 @@ interface JoinRequestItem {
   photo_url: string;
   department: string;
   paper_title: string;
-  clue_text: string;
   status: string;
   created_at: string;
 }
@@ -60,6 +59,10 @@ export default function AdminPage() {
   const [clueQueue, setClueQueue] = useState<ClueItem[]>([]);
   const [editingClue, setEditingClue] = useState<{id: string; value: string} | null>(null);
   const [joinRequests, setJoinRequests] = useState<JoinRequestItem[]>([]);
+  
+  const [editingParticipant, setEditingParticipant] = useState<string | null>(null);
+  const [editData, setEditData] = useState({ name: '', department: '', paper_title: '' });
+  const [savingParticipant, setSavingParticipant] = useState(false);
   
   // Loading states
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -157,6 +160,25 @@ export default function AdminPage() {
       return; 
     }
     setParticipantsList(q => q.filter(item => item.id !== participantId));
+  };
+
+  const handleSaveParticipant = async (id: string) => {
+    setSavingParticipant(true);
+    const { error } = await supabase.rpc("admin_update_participant", {
+      p_id: id,
+      p_name: editData.name,
+      p_department: editData.department,
+      p_paper_title: editData.paper_title
+    });
+    setSavingParticipant(false);
+    
+    if (error) {
+      alert("Failed to update participant: " + error.message);
+      return;
+    }
+    
+    setEditingParticipant(null);
+    fetchParticipantsList();
   };
 
   const clearSelfClue = async (participantId: string) => {
@@ -629,22 +651,90 @@ export default function AdminPage() {
           ) : (
             <div className="space-y-4">
               {participantsList.map(item => (
-                <Card key={item.id} className="p-4 bg-white border-thicker shadow-[4px_4px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-black text-text uppercase truncate text-lg">{item.name}</p>
-                      {item.claimed && (
-                        <Badge variant="success" className="text-[10px] py-0.5 px-1">CLAIMED</Badge>
-                      )}
+                <Card key={item.id} className="p-4 bg-white border-thicker shadow-[4px_4px_0px_#000] flex flex-col gap-4">
+                  {editingParticipant === item.id ? (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-text uppercase">Name</label>
+                        <input 
+                          type="text" 
+                          className="w-full border-2 border-text p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-bg"
+                          value={editData.name}
+                          onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-text uppercase">Department</label>
+                        <input 
+                          type="text" 
+                          className="w-full border-2 border-text p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-bg"
+                          value={editData.department}
+                          onChange={e => setEditData(d => ({ ...d, department: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-text uppercase">Paper/Interest</label>
+                        <input 
+                          type="text" 
+                          className="w-full border-2 border-text p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-bg"
+                          value={editData.paper_title}
+                          onChange={e => setEditData(d => ({ ...d, paper_title: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end mt-2">
+                        <Button 
+                          variant="secondary" 
+                          className="text-xs py-1"
+                          onClick={() => setEditingParticipant(null)}
+                          disabled={savingParticipant}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          variant="primary" 
+                          className="text-xs py-1"
+                          onClick={() => handleSaveParticipant(item.id)}
+                          isLoading={savingParticipant}
+                          disabled={savingParticipant}
+                        >
+                          Save Changes
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-xs text-text-muted font-bold truncate">{item.department} &middot; {item.email}</p>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteParticipant(item.id, item.name)}
-                    className="flex-shrink-0 text-xs font-black uppercase text-error border-2 border-error px-4 py-2 hover:bg-error hover:text-white transition-colors min-h-[44px]"
-                  >
-                    Delete Data
-                  </button>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-black text-text uppercase truncate text-lg">{item.name}</p>
+                          {item.claimed && (
+                            <Badge variant="success" className="text-[10px] py-0.5 px-1">CLAIMED</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-text-muted font-bold truncate">{item.department} &middot; {item.email}</p>
+                        {item.paper_title && (
+                          <p className="text-xs text-text-muted font-bold truncate mt-1">Paper: {item.paper_title}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setEditingParticipant(item.id);
+                            setEditData({ name: item.name, department: item.department, paper_title: item.paper_title || '' });
+                          }}
+                          className="text-xs px-4 py-2 min-h-[44px]"
+                        >
+                          Edit
+                        </Button>
+                        <button
+                          onClick={() => handleDeleteParticipant(item.id, item.name)}
+                          className="text-xs font-black uppercase text-error border-2 border-error px-4 py-2 hover:bg-error hover:text-white transition-colors min-h-[44px]"
+                        >
+                          Delete Data
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               ))}
             </div>
@@ -678,12 +768,11 @@ export default function AdminPage() {
                         } className="text-[10px] py-0.5 px-1 uppercase">{item.status}</Badge>
                       </div>
                       <p className="text-xs text-text-muted font-bold truncate mb-2">{item.department} &middot; {item.email}</p>
-                      <div className="bg-bg-alt border-2 border-text p-2 text-sm font-medium text-text mb-2">
-                        <p className="text-xs font-black uppercase text-text-muted mb-1">Personal clue</p>
-                        &ldquo;{item.clue_text}&rdquo;
-                      </div>
                       {item.paper_title && (
-                        <p className="text-xs text-text-muted font-bold">Paper/Interest: {item.paper_title}</p>
+                        <div className="bg-bg-alt border-2 border-text p-2 text-sm font-medium text-text mb-2">
+                          <p className="text-xs font-black uppercase text-text-muted mb-1">Paper/Interest</p>
+                          {item.paper_title}
+                        </div>
                       )}
                     </div>
                     <div className="flex flex-wrap md:flex-col gap-2 flex-shrink-0">
@@ -696,7 +785,7 @@ export default function AdminPage() {
                           Accept
                         </Button>
                       )}
-                      {item.status !== 'declined' && (
+                      {item.status !== 'accepted' && item.status !== 'declined' && (
                         <Button 
                           variant="secondary" 
                           onClick={() => handleJoinRequestAction(item.id, 'decline')}
