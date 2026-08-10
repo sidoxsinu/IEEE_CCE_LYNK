@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import Papa from "papaparse";
 import { Loader2, AlertCircle, CheckCircle, EyeOff, Eye, AlertTriangle, Download } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { resetGameAction } from "./actions";
 
 type AdminView = "dashboard" | "event-controls" | "selfie-moderation" | "clue-moderation" | "import-export" | "manage-participants" | "join-requests";
@@ -60,6 +61,18 @@ export default function AdminPage() {
   const [clueQueue, setClueQueue] = useState<ClueItem[]>([]);
   const [editingClue, setEditingClue] = useState<{id: string; value: string} | null>(null);
   const [joinRequests, setJoinRequests] = useState<JoinRequestItem[]>([]);
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string | React.ReactNode;
+    onConfirm: () => void;
+    confirmText?: string;
+    isDanger?: boolean;
+    expectedInput?: string;
+  }>({ isOpen: false, title: "", message: "", onConfirm: () => {} });
+
+  const closeConfirm = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
   
   const [editingParticipant, setEditingParticipant] = useState<string | null>(null);
   const [editData, setEditData] = useState({ name: '', department: '', paper_title: '' });
@@ -154,14 +167,21 @@ export default function AdminPage() {
   };
 
   const handleDeleteParticipant = async (participantId: string, name: string) => {
-    if (!window.confirm(`Are you SURE you want to completely delete all data for ${name}? This action cannot be undone and will delete all their connections and selfies.`)) return;
-    
-    const { error } = await supabase.rpc("admin_delete_participant", { p_id: participantId });
-    if (error) { 
-      alert("Failed to delete participant: " + error.message); 
-      return; 
-    }
-    setParticipantsList(q => q.filter(item => item.id !== participantId));
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Participant",
+      message: `Are you SURE you want to completely delete all data for ${name}? This action cannot be undone and will delete all their connections and selfies.`,
+      confirmText: "Delete",
+      isDanger: true,
+      onConfirm: async () => {
+        const { error } = await supabase.rpc("admin_delete_participant", { p_id: participantId });
+        if (error) { 
+          alert("Failed to delete participant: " + error.message); 
+          return; 
+        }
+        setParticipantsList(q => q.filter(item => item.id !== participantId));
+      }
+    });
   };
 
   const handleSaveParticipant = async (id: string) => {
@@ -190,17 +210,24 @@ export default function AdminPage() {
   };
 
   const handleJoinRequestAction = async (id: string, action: 'accept' | 'decline' | 'block') => {
-    if (!window.confirm(`Are you sure you want to ${action} this request?`)) return;
-    
-    if (action === 'accept') {
-      const { error } = await supabase.rpc("admin_accept_join_request", { p_request_id: id });
-      if (error) { alert("Failed to accept: " + error.message); return; }
-    } else {
-      const status = action === 'decline' ? 'declined' : 'blocked';
-      const { error } = await supabase.rpc("admin_update_join_request_status", { p_request_id: id, p_status: status });
-      if (error) { alert("Failed to update status: " + error.message); return; }
-    }
-    fetchJoinRequests(); // Refresh list
+    setConfirmModal({
+      isOpen: true,
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} Request`,
+      message: `Are you sure you want to ${action} this request?`,
+      confirmText: "Yes",
+      isDanger: action === 'block' || action === 'decline',
+      onConfirm: async () => {
+        if (action === 'accept') {
+          const { error } = await supabase.rpc("admin_accept_join_request", { p_request_id: id });
+          if (error) { alert("Failed to accept: " + error.message); return; }
+        } else {
+          const status = action === 'decline' ? 'declined' : 'blocked';
+          const { error } = await supabase.rpc("admin_update_join_request_status", { p_request_id: id, p_status: status });
+          if (error) { alert("Failed to update status: " + error.message); return; }
+        }
+        fetchJoinRequests(); // Refresh list
+      }
+    });
   };
 
   const toggleConfig = async (key: keyof ConfigState) => {
@@ -223,29 +250,28 @@ export default function AdminPage() {
   };
 
   const handleResetGame = async () => {
-    const confirm1 = window.confirm(
-      "WARNING: This will delete ALL connections, ALL join requests, reset all participants, and sign out all users.\n\nAre you absolutely sure you want to start a new event?"
-    );
-    if (!confirm1) return;
+    setConfirmModal({
+      isOpen: true,
+      title: "Factory Reset Game",
+      message: "WARNING: This will delete ALL connections, ALL join requests, reset all participants, and sign out all users.\n\nAre you absolutely sure you want to start a new event?",
+      confirmText: "Reset Game",
+      isDanger: true,
+      expectedInput: "RESET",
+      onConfirm: async () => {
+        setResetting(true);
+        const result = await resetGameAction();
+        setResetting(false);
 
-    const confirm2 = window.prompt("Type 'RESET' to confirm game wipe:");
-    if (confirm2 !== "RESET") {
-      alert("Reset cancelled.");
-      return;
-    }
-
-    setResetting(true);
-    const result = await resetGameAction();
-    setResetting(false);
-
-    if (result?.error) {
-      alert("Failed to reset game: " + result.error);
-    } else {
-      alert("Game has been successfully reset for a new event!");
-      fetchParticipantsList();
-      fetchJoinRequests();
-      fetchModerationQueue();
-    }
+        if (result?.error) {
+          alert("Failed to reset game: " + result.error);
+        } else {
+          alert("Game has been successfully reset for a new event!");
+          fetchParticipantsList();
+          fetchJoinRequests();
+          fetchModerationQueue();
+        }
+      }
+    });
   };
 
   const toggleSelfieVisibility = async (connectionId: string, currentHidden: boolean) => {
@@ -846,6 +872,7 @@ export default function AdminPage() {
         </div>
       )}
 
+      <ConfirmModal {...confirmModal} onClose={closeConfirm} />
     </div>
   );
 }
