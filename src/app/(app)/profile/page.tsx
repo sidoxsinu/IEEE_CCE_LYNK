@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 
 export default function ProfilePage() {
-  const { userProfile } = useAuth();
+  const { userProfile, eventActive } = useAuth();
   const router = useRouter();
   const supabase = createClient();
   const [connectionsCount, setConnectionsCount] = useState(0);
@@ -129,8 +129,8 @@ export default function ProfilePage() {
         </Card>
       </div>
 
-      {/* Edit My Clue — only for participants */}
-      {isParticipant && (
+      {/* Edit My Clue — only for participants when event is active */}
+      {isParticipant && eventActive && (
         <Card className="p-5 mb-6 bg-white border-thicker">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-black text-sm uppercase tracking-widest text-text">My Personal Clue</h3>

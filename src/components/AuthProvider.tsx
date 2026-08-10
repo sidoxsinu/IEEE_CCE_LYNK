@@ -16,6 +16,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   error: string | null;
+  eventActive: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthContextType>({
   userProfile: null,
   loading: true,
   error: null,
+  eventActive: true,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -30,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [eventActive, setEventActive] = useState(true);
 
   const supabase = createClient();
 
@@ -70,7 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw profileError;
         }
 
+        const { data: configData } = await supabase
+          .from("config")
+          .select("event_active")
+          .eq("id", "main")
+          .single();
+
         if (mounted) {
+          if (configData) {
+            setEventActive(configData.event_active);
+          }
           if (data) {
             setUserProfile({
               uid: data.uid,
@@ -120,13 +132,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        const { data, error } = await supabase
-          .from("users")
-          .select("uid")
-          .eq("uid", user.id)
-          .single();
+        const [userRes, configRes] = await Promise.all([
+          supabase.from("users").select("uid").eq("uid", user.id).single(),
+          supabase.from("config").select("event_active").eq("id", "main").single()
+        ]);
 
-        if (error || !data) {
+        if (configRes.data) {
+          setEventActive(configRes.data.event_active);
+        }
+
+        if (userRes.error || !userRes.data) {
           // Profile was deleted (e.g., blocked by admin), sign them out immediately
           await supabase.auth.signOut();
           setUser(null);
@@ -136,28 +151,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    let lastCheck = Date.now();
-    const handleClick = () => {
-      const now = Date.now();
-      if (now - lastCheck > 15000) { // Check at most every 15 seconds on click
-        lastCheck = now;
-        handleVisibilityChange();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleVisibilityChange);
-    document.addEventListener("click", handleClick);
+    const intervalId = setInterval(() => {
+      handleVisibilityChange();
+    }, 3000);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleVisibilityChange);
-      document.removeEventListener("click", handleClick);
+      clearInterval(intervalId);
     };
   }, [user, supabase]);
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, error }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, error, eventActive }}>
       {children}
     </AuthContext.Provider>
   );

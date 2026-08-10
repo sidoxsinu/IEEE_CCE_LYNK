@@ -2,8 +2,10 @@
 
 import { useAuth } from "@/components/AuthProvider";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getMySelfClue } from "@/app/actions/participant";
+import { SelfClueModal } from "@/components/SelfClueModal";
 
 const navItems = [
   {
@@ -65,9 +67,11 @@ const navItems = [
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, loading, eventActive } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [showSelfClueModal, setShowSelfClueModal] = useState(false);
+  const [checkingClue, setCheckingClue] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -75,7 +79,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  useEffect(() => {
+    let mounted = true;
+    async function checkClue() {
+      try {
+        const res = await getMySelfClue();
+        if (mounted) {
+          if (!res.error && res.selfClue === null) {
+            setShowSelfClueModal(true);
+          }
+          setCheckingClue(false);
+        }
+      } catch (err) {
+        if (mounted) setCheckingClue(false);
+      }
+    }
+    
+    if (userProfile && userProfile.role !== "admin") {
+      checkClue();
+    } else if (userProfile?.role === "admin") {
+      setCheckingClue(false);
+    }
+    return () => { mounted = false; };
+  }, [userProfile, pathname]);
+
+  if (loading || (userProfile && checkingClue)) {
     return (
       <div className="min-h-dvh flex items-center justify-center">
         <div className="w-10 h-10 rounded-full border-2 border-primary-400 border-t-transparent animate-spin" />
@@ -103,25 +131,42 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       };
     }
     return item;
+  }).filter(item => {
+    // If event is inactive, hide the Discover (Home) page
+    if (!eventActive && item.label === "Discover") {
+      return false;
+    }
+    return true;
   });
 
   return (
     <div className="min-h-dvh safe-bottom">
-      {children}
+      {showSelfClueModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <SelfClueModal onDone={() => setShowSelfClueModal(false)} />
+        </div>
+      )}
 
-      {/* Bottom Navigation */}
-      <nav className="bottom-nav" id="bottom-navigation">
-        {displayNavItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`nav-item ${pathname === item.href ? "active" : ""}`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </Link>
-        ))}
-      </nav>
+      {/* Main app content, hidden or non-interactive if modal is open */}
+      <div className={showSelfClueModal ? "pointer-events-none blur-md opacity-30 h-screen overflow-hidden" : ""}>
+        <div className="pb-20 max-w-md mx-auto min-h-dvh bg-bg-alt shadow-2xl relative">
+          {children}
+        </div>
+        
+        {/* Bottom Nav */}
+        <nav className="bottom-nav" id="bottom-navigation">
+          {displayNavItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`nav-item ${pathname === item.href ? "active" : ""}`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+      </div>
     </div>
   );
 }

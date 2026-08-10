@@ -477,8 +477,7 @@ export default function AdminPage() {
                   Resetting the game will completely wipe all connections, pending requests, and user progress. Participants will be kept but reset to unclaimed status. Only do this if you are preparing for a new event!
                 </p>
                 <Button
-                  variant="error"
-                  className="w-full justify-center py-3"
+                  className="w-full justify-center py-3 !bg-error text-white border-2 border-text shadow-[4px_4px_0px_#000]"
                   onClick={handleResetGame}
                   disabled={resetting}
                 >

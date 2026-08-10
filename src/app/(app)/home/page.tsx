@@ -4,16 +4,14 @@ import { useAuth } from "@/components/AuthProvider";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ConnectionModal, ParticipantCard } from "@/components/ConnectionModal";
-import { SelfClueModal } from "@/components/SelfClueModal";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
-import { getMySelfClue } from "@/app/actions/participant";
 
 // Inner component that reads search params
 function HomePageInner() {
-  const { userProfile, loading } = useAuth();
+  const { userProfile, loading, eventActive } = useAuth();
   const supabase = createClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -22,7 +20,6 @@ function HomePageInner() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedParticipant, setSelectedParticipant] = useState<ParticipantCard | null>(null);
-  const [showSelfClueModal, setShowSelfClueModal] = useState(false);
   const [myCode, setMyCode] = useState<string | null>(null);
 
   const fetchClueGrid = useCallback(async () => {
@@ -51,36 +48,6 @@ function HomePageInner() {
     fetchMyCode();
   }, [fetchClueGrid, fetchMyCode]);
 
-  // Check if user has set their personal clue yet
-  useEffect(() => {
-    let mounted = true;
-    async function checkClue() {
-      try {
-        const res = await getMySelfClue();
-        if (mounted && !res.error && res.selfClue === null) {
-          setTimeout(() => {
-            if (mounted) setShowSelfClueModal(true);
-          }, 800);
-        }
-      } catch (err) {
-        console.error("Failed to check self clue:", err);
-      }
-    }
-    if (userProfile?.uid && userProfile?.role !== "admin") {
-      checkClue();
-    }
-    return () => { mounted = false; };
-  }, [userProfile?.uid, userProfile?.role]);
-
-  const handleSelfClueDone = () => {
-    setShowSelfClueModal(false);
-    // Remove URL params if any
-    if (searchParams.toString()) {
-      router.replace("/home", { scroll: false });
-    }
-    fetchClueGrid(); // Refresh so the card reflects the new clue
-  };
-
   // Exclude self from grid if user is also a participant, and sort verified to the bottom
   const gridParticipants = participants
     .filter(p => p.claimed_by_uid !== userProfile?.uid)
@@ -92,6 +59,23 @@ function HomePageInner() {
   const totalParticipants = gridParticipants.length;
   const verifiedConnections = gridParticipants.filter(p => p.connection_status === "verified").length;
   const progressPercent = totalParticipants > 0 ? (verifiedConnections / totalParticipants) * 100 : 0;
+
+  if (!eventActive && userProfile?.role !== "admin") {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <svg className="w-16 h-16 mx-auto mb-4 text-text-muted opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <h2 className="text-2xl font-black uppercase text-text mb-2">Event Inactive</h2>
+          <p className="text-text-muted font-medium max-w-sm mx-auto">
+            The event has been paused or has ended. Connections can no longer be made. You can still view the Gallery and Leaderboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 pt-8 pb-safe-bottom min-h-dvh bg-bg-alt">
@@ -238,10 +222,6 @@ function HomePageInner() {
         />
       )}
 
-      {/* First-login self clue prompt */}
-      {showSelfClueModal && (
-        <SelfClueModal onDone={handleSelfClueDone} />
-      )}
     </div>
   );
 }
