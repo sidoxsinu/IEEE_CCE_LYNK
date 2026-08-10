@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import Papa from "papaparse";
-import { Loader2, AlertCircle, CheckCircle, EyeOff, Eye } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle, EyeOff, Eye, AlertTriangle, Download } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { resetGameAction } from "./actions";
 
 type AdminView = "dashboard" | "event-controls" | "selfie-moderation" | "clue-moderation" | "import-export" | "manage-participants" | "join-requests";
 
@@ -70,6 +71,7 @@ export default function AdminPage() {
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [updatingConfig, setUpdatingConfig] = useState(false);
+  const [resetting, setResetting] = useState(false);
   
   // Feedback states
   const [importFeedback, setImportFeedback] = useState<{type: 'success' | 'error', msg: string} | null>(null);
@@ -206,9 +208,6 @@ export default function AdminPage() {
     setUpdatingConfig(true);
     
     const newValue = !config[key];
-    // Optimistic UI could be risky if it fails, but prompt says:
-    // "Wait for the actual response. If successful update UI state. If failed revert UI."
-    // So we don't update state until success.
     
     const { error } = await supabase
       .from("config")
@@ -223,9 +222,34 @@ export default function AdminPage() {
     setUpdatingConfig(false);
   };
 
+  const handleResetGame = async () => {
+    const confirm1 = window.confirm(
+      "WARNING: This will delete ALL connections, ALL join requests, reset all participants, and sign out all users.\n\nAre you absolutely sure you want to start a new event?"
+    );
+    if (!confirm1) return;
+
+    const confirm2 = window.prompt("Type 'RESET' to confirm game wipe:");
+    if (confirm2 !== "RESET") {
+      alert("Reset cancelled.");
+      return;
+    }
+
+    setResetting(true);
+    const result = await resetGameAction();
+    setResetting(false);
+
+    if (result?.error) {
+      alert("Failed to reset game: " + result.error);
+    } else {
+      alert("Game has been successfully reset for a new event!");
+      fetchParticipantsList();
+      fetchJoinRequests();
+      fetchModerationQueue();
+    }
+  };
+
   const toggleSelfieVisibility = async (connectionId: string, currentHidden: boolean) => {
     const newHidden = !currentHidden;
-    // Optimistic approach for perceived performance, but revert on error
     setQueue(q => q.map(item => item.id === connectionId ? { ...item, hidden: newHidden } : item));
     
     const { error } = await supabase.rpc("toggle_selfie_visibility", {
@@ -235,7 +259,6 @@ export default function AdminPage() {
       
     if (error) {
       alert("Failed to update visibility: " + error.message);
-      // Revert
       setQueue(q => q.map(item => item.id === connectionId ? { ...item, hidden: currentHidden } : item));
     }
   };
@@ -447,6 +470,21 @@ export default function AdminPage() {
                   </div>
                 </div>
               </Card>
+
+              <div className="bg-bg-alt p-4 border-2 border-text shadow-[4px_4px_0px_#000]">
+                <h3 className="font-black uppercase text-error mb-2">Danger Zone</h3>
+                <p className="text-sm text-text-muted mb-4">
+                  Resetting the game will completely wipe all connections, pending requests, and user progress. Participants will be kept but reset to unclaimed status. Only do this if you are preparing for a new event!
+                </p>
+                <Button
+                  variant="error"
+                  className="w-full justify-center py-3"
+                  onClick={handleResetGame}
+                  disabled={resetting}
+                >
+                  {resetting ? <><Loader2 className="mr-2 animate-spin" size={16} /> Resetting Game...</> : <><AlertTriangle size={16} className="mr-2" /> Factory Reset Game</>}
+                </Button>
+              </div>
             </>
           ) : (
             <p>Failed to load configuration.</p>
@@ -485,7 +523,6 @@ export default function AdminPage() {
             )}
           </Card>
 
-          {/* Add Single Participant */}
           <Card className="p-6 bg-white border-thicker shadow-[4px_4px_0px_#000]">
             <h3 className="text-xl font-black uppercase mb-2">Add Single Participant</h3>
             <p className="text-sm font-bold text-text-muted mb-5">Manually add one participant by filling in the fields below.</p>
@@ -537,10 +574,9 @@ export default function AdminPage() {
             <Button 
               onClick={handleExport}
               disabled={exporting}
-              isLoading={exporting}
               className="w-full justify-center min-h-[44px]"
             >
-              Export CSV
+              {exporting ? <><Loader2 className="mr-2 animate-spin" size={16} /> Exporting...</> : <><Download size={16} className="mr-2" /> Export to CSV</>}
             </Button>
           </Card>
         </div>
